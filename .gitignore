@@ -1,0 +1,12 @@
+FinderToolkit.dmg
+.DS_Store
+.idea/
+
+# Xcode user state and local build output
+*.xcuserstate
+*.xcuserdatad/
+DerivedData/
+build/
+
+# Local compose/planning artifacts
+docs/compose/

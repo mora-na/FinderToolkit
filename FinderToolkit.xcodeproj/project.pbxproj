@@ -1,0 +1,508 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001 /* AppDelegate.swift */; };
+		A1000008 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000010 /* main.swift */; };
+		A1000002 /* FinderSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002 /* FinderSync.swift */; };
+		A1000013 /* ExtensionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* ExtensionSettings.swift */; };
+		A1000011 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* Settings.swift */; };
+		A1000012 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* SettingsWindowController.swift */; };
+		A1000003 /* HashCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000003 /* HashCalculator.swift */; };
+		A1000007 /* HashCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000003 /* HashCalculator.swift */; };
+		A1000004 /* NewFileWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004 /* NewFileWindowController.swift */; };
+		A1000005 /* HashResultWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* HashResultWindowController.swift */; };
+		A1000009 /* HashResultWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* HashResultWindowController.swift */; };
+		A1000006 /* FinderToolkitExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A3000002 /* FinderToolkitExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A1000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000011 /* Assets.xcassets */; };
+		A1000014 /* HashTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000015 /* HashTypes.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A4000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A9000002;
+			remoteInfo = FinderToolkitExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A6000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1000006 /* FinderToolkitExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A7400001 /* Re-sign Extension with Entitlements */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Re-sign Extension with Entitlements";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Re-sign the extension with entitlements to ensure they are embedded\ncodesign --force --sign \"${CODE_SIGN_IDENTITY}\" --entitlements \"${SRCROOT}/FinderToolkitExtension/FinderToolkitExtension.entitlements\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.appex\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A2000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A2000010 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A2000012 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
+		A2000013 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		A2000002 /* FinderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSync.swift; sourceTree = "<group>"; };
+		A2000014 /* ExtensionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionSettings.swift; sourceTree = "<group>"; };
+		A2000003 /* HashCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HashCalculator.swift; sourceTree = "<group>"; };
+		A2000004 /* NewFileWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFileWindowController.swift; sourceTree = "<group>"; };
+		A2000005 /* HashResultWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HashResultWindowController.swift; sourceTree = "<group>"; };
+		A2000006 /* FinderToolkit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderToolkit.entitlements; sourceTree = "<group>"; };
+		A2000007 /* FinderToolkitExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderToolkitExtension.entitlements; sourceTree = "<group>"; };
+		A2000008 /* Info.plist (App) */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info.plist"; path = "FinderToolkit/Info.plist"; sourceTree = "<group>"; };
+		A2000009 /* Info.plist (Ext) */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info.plist"; path = "FinderToolkitExtension/Info.plist"; sourceTree = "<group>"; };
+		A2000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000015 /* HashTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HashTypes.swift; sourceTree = "<group>"; };
+		A3000002 /* FinderToolkitExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FinderToolkitExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A3000003 /* FinderToolkit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FinderToolkit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A7100001 /* Frameworks (App) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7100002 /* Frameworks (Ext) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+	A8000001 /* FinderToolkit (App) */ = {
+		isa = PBXGroup;
+		children = (
+			A2000001 /* AppDelegate.swift */,
+			A2000010 /* main.swift */,
+			A2000012 /* Settings.swift */,
+			A2000013 /* SettingsWindowController.swift */,
+			A2000015 /* HashTypes.swift */,
+			A2000006 /* FinderToolkit.entitlements */,
+			A2000008 /* Info.plist (App) */,
+			A2000011 /* Assets.xcassets */,
+		);
+		path = FinderToolkit;
+		sourceTree = "<group>";
+	};
+		A8000002 /* FinderToolkitExtension */ = {
+			isa = PBXGroup;
+			children = (
+				A2000002 /* FinderSync.swift */,
+				A2000014 /* ExtensionSettings.swift */,
+				A2000003 /* HashCalculator.swift */,
+				A2000004 /* NewFileWindowController.swift */,
+				A2000005 /* HashResultWindowController.swift */,
+				A2000007 /* FinderToolkitExtension.entitlements */,
+				A2000009 /* Info.plist (Ext) */,
+			);
+			path = FinderToolkitExtension;
+			sourceTree = "<group>";
+		};
+		A8000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A3000003 /* FinderToolkit.app */,
+				A3000002 /* FinderToolkitExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A8000000 /* root */ = {
+			isa = PBXGroup;
+			children = (
+				A8000001 /* FinderToolkit (App) */,
+				A8000002 /* FinderToolkitExtension */,
+				A8000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A9000001 /* FinderToolkit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB000001 /* Build configuration list for PBXNativeTarget "FinderToolkit" */;
+			buildPhases = (
+				A7200001 /* Sources (App) */,
+				A7100001 /* Frameworks (App) */,
+				A7300001 /* Resources (App) */,
+				A6000001 /* Embed Foundation Extensions */,
+			);
+			buildRules = ();
+			dependencies = (
+				AC000001 /* PBXTargetDependency */,
+			);
+			name = FinderToolkit;
+			productName = FinderToolkit;
+			productReference = A3000003 /* FinderToolkit.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A9000002 /* FinderToolkitExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB000002 /* Build configuration list for PBXNativeTarget "FinderToolkitExtension" */;
+			buildPhases = (
+				A7200002 /* Sources (Ext) */,
+				A7100002 /* Frameworks (Ext) */,
+				A7400001 /* Re-sign Extension with Entitlements */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = FinderToolkitExtension;
+			productName = FinderToolkitExtension;
+			productReference = A3000002 /* FinderToolkitExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A5000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A9000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					A9000002 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = AB000000 /* Build configuration list for PBXProject "FinderToolkit" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				zh_CN,
+				Base,
+			);
+			mainGroup = A8000000;
+			productRefGroup = A8000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A9000001 /* FinderToolkit */,
+				A9000002 /* FinderToolkitExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A7300001 /* Resources (App) */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000010 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+	A7200001 /* Sources (App) */ = {
+		isa = PBXSourcesBuildPhase;
+		buildActionMask = 2147483647;
+		files = (
+			A1000001 /* AppDelegate.swift in Sources */,
+			A1000008 /* main.swift in Sources */,
+			A1000011 /* Settings.swift in Sources */,
+			A1000012 /* SettingsWindowController.swift in Sources */,
+			A1000014 /* HashTypes.swift in Sources */,
+			A1000007 /* HashCalculator.swift in Sources */,
+			A1000009 /* HashResultWindowController.swift in Sources */,
+		);
+		runOnlyForDeploymentPostprocessing = 0;
+	};
+		A7200002 /* Sources (Ext) */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			A1000002 /* FinderSync.swift in Sources */,
+			A1000013 /* ExtensionSettings.swift in Sources */,
+			A1000003 /* HashCalculator.swift in Sources */,
+			A1000014 /* HashTypes.swift in Sources */,
+			A1000004 /* NewFileWindowController.swift in Sources */,
+				A1000005 /* HashResultWindowController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AC000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A9000002 /* FinderToolkitExtension */;
+			targetProxy = A4000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AD000001 /* Debug (Project) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AD000002 /* Release (Project) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		AD000003 /* Debug (App) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = FinderToolkit/FinderToolkit.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = K8XRA75TNH;
+				INFOPLIST_FILE = FinderToolkit/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.pandkided.FinderToolkit";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AD000004 /* Release (App) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = FinderToolkit/FinderToolkit.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = K8XRA75TNH;
+				INFOPLIST_FILE = FinderToolkit/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.pandkided.FinderToolkit";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AD000005 /* Debug (Ext) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinderToolkitExtension/FinderToolkitExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = K8XRA75TNH;
+				INFOPLIST_FILE = FinderToolkitExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.pandkided.FinderToolkit.Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AD000006 /* Release (Ext) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinderToolkitExtension/FinderToolkitExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = K8XRA75TNH;
+				INFOPLIST_FILE = FinderToolkitExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.pandkided.FinderToolkit.Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AB000000 /* Build configuration list for PBXProject "FinderToolkit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD000001 /* Debug */,
+				AD000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB000001 /* Build configuration list for PBXNativeTarget "FinderToolkit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD000003 /* Debug */,
+				AD000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB000002 /* Build configuration list for PBXNativeTarget "FinderToolkitExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD000005 /* Debug */,
+				AD000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = A5000001 /* Project object */;
+}
