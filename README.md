@@ -1,221 +1,110 @@
 # FinderToolkit
 
-FinderToolkit 是一个 macOS Finder Sync Extension，为 Finder 右键菜单增加常用文件操作：
-复制路径、新建文件、计算哈希值、在当前目录打开终端或开发工具。
+FinderToolkit 是一个原生 macOS Finder 扩展，把常用的文件操作放到 Finder 右键菜单：复制路径、新建文件、计算哈希、打开终端，以及在 VS Code、Cursor、JetBrains IDE、Android Studio 或 Xcode 中打开当前目录。
+
+它不联网、不上传文件，哈希计算在本机流式完成。设置文件只保存在本机的 `~/Library/Application Support/FinderToolkit/settings.json`。
+
+## 下载
+
+- [下载 FinderToolkit 1.1.3 DMG](https://github.com/mora-na/FinderToolkit/releases/download/v1.1.3/FinderToolkit-1.1.3.dmg)
+- [查看全部 Releases](https://github.com/mora-na/FinderToolkit/releases)
+
+当前公开 DMG 是 Apple Silicon（`arm64`）构建，最低支持 macOS 13 Ventura。DMG 使用 ad-hoc 签名，未使用 Developer ID，也未经过 Apple notarization；首次打开时按下面的“首次启动”步骤操作。
 
 ## 功能
 
-| 功能 | 触发位置 | 说明 |
-|------|----------|------|
-| 复制路径 | 选中文件、文件夹、空白处、侧边栏、工具栏菜单 | 复制选中项路径；空白处复制当前 Finder 目录路径；多选时按行分隔 |
-| 新建文件 | 选中文件夹、文件或目录空白处 | 在目标目录创建 `txt`、`docx`、`xlsx`、`pptx`、`md`、`csv` 文件，自动避开重名 |
-| 计算 hash | 选中文件 | 对一个或多个文件流式计算 `CRC32`、`CRC32C`、`MD5`、`SHA1`、`SHA224`、`SHA256`、`SHA384`、`SHA512`、`SM3`；默认启用 `MD5`、`SHA1`、`SHA256` |
-| 打开终端 | 选中文件夹、文件或目录空白处 | 在目标目录打开 Terminal |
-| 在开发工具中打开 | 选中文件夹、文件或目录空白处 | 可在设置页多选 VS Code、Cursor、IntelliJ IDEA、PyCharm、WebStorm、Android Studio、Xcode，Finder 菜单按选择动态显示 |
+| Finder 菜单项 | 可用位置 | 作用 |
+| --- | --- | --- |
+| 复制路径 | 文件、文件夹、空白处、侧边栏、工具栏菜单 | 复制一个或多个路径；多选时每个路径占一行 |
+| 新建文件 | 文件、文件夹、目录空白处 | 创建 `txt`、`docx`、`xlsx`、`pptx`、`md`、`csv` 等文件，自动避开重名 |
+| 计算 hash | 一个或多个文件 | 流式计算 `CRC32`、`CRC32C`、`MD5`、`SHA1`、`SHA224`、`SHA256`、`SHA384`、`SHA512`、`SM3` |
+| 打开终端 | 文件、文件夹、目录空白处 | 在目标目录打开 Terminal 或 iTerm2 |
+| 在开发工具中打开 | 文件、文件夹、目录空白处 | 按设置页选择的工具动态显示菜单项 |
 
-## 项目结构
+默认启用 `MD5`、`SHA1`、`SHA256` 和 VS Code。所有菜单、哈希算法、新建文件扩展名都可以在设置页调整。
 
-```text
-FinderToolkit/
-├── FinderToolkit.xcodeproj/
-│   └── project.pbxproj
-├── FinderToolkit/
-│   ├── AppDelegate.swift
-│   ├── Assets.xcassets/
-│   │   ├── AppIcon.appiconset/
-│   │   └── AccentColor.colorset/
-│   ├── FinderToolkit.entitlements
-│   ├── Info.plist
-│   └── main.swift
-├── FinderToolkitExtension/
-│   ├── FinderSync.swift
-│   ├── HashCalculator.swift
-│   ├── HashResultWindowController.swift
-│   ├── NewFileWindowController.swift
-│   ├── FinderToolkitExtension.entitlements
-│   └── Info.plist
-└── Tools/
-    └── generate_app_icon.swift
-```
+## 使用截图
 
-## 环境要求
+### 设置页
 
-- macOS 13.0 Ventura 或更高版本
-- Xcode 15 或更高版本
-- 一个可用于本机开发签名的 Apple Development 证书
+![FinderToolkit 设置页](docs/images/settings-window.png)
 
-工程当前使用 Swift 5，主 App 和 Extension 的最低部署版本均为 macOS 13.0。
+在设置页选择终端、开发工具和哈希算法，编辑新建文件类型，确认 Finder 扩展状态，然后点击“保存设置”。
 
-## 开发运行
+### 哈希结果
 
-1. 打开项目：
+![FinderToolkit 哈希结果](docs/images/hash-result.png)
 
-```bash
-open FinderToolkit.xcodeproj
-```
+哈希结果窗口支持滚动查看和“复制全部”。大文件会显示开始前确认和计算进度，避免误操作。
 
-2. 配置签名：
+## 安装与首次启动
 
-在 Xcode 中分别选择 `FinderToolkit` 和 `FinderToolkitExtension` target，进入 `Signing & Capabilities`，选择自己的开发者团队。
+1. 下载 DMG，双击打开后将 `FinderToolkit.app` 拖到 `Applications`。
+2. 在“应用程序”中右键 FinderToolkit，选择“打开”。如果系统提示无法验证开发者，在“系统设置 -> 隐私与安全性”中确认“仍要打开”，再重新打开一次。
+3. 打开“系统设置”，搜索“Finder 扩展”，进入 Finder 扩展列表并启用 `FinderToolkitExtension`。
+4. 再次打开 FinderToolkit。设置窗口会自动出现；完成配置后点击“保存设置”。
+5. 重启 Finder（按住 Option 键右键点击 Dock 中的 Finder，选择“重新启动”），在任意文件或目录空白处右键即可看到 FinderToolkit 菜单。
 
-两个 Bundle Identifier 必须保持父子关系：
+如果菜单没有出现，先确认 Finder 扩展仍处于启用状态，再退出并重新打开 Finder。设置页右下角的“扩展与同步”模块可以帮助确认扩展是否注册、授权以及设置文件是否已创建。
 
-```text
-主 App:    <your.bundle.prefix>.FinderToolkit
-Extension: <your.bundle.prefix>.FinderToolkit.Extension
-```
+## 权限与隐私
 
-3. 运行：
+- 主 App 和 Finder Sync Extension 使用 App Sandbox；文件操作只针对 Finder 当前选择或目录。
+- 新建文件和打开终端在必要时通过 Apple Events 调用 Finder 或 Terminal，macOS 可能会显示自动化权限提示。
+- 复制路径会尝试发送系统通知；不允许通知不会影响复制结果。
+- 哈希计算使用 1 MB 缓冲区流式读取，不会一次性把大文件载入内存。
+- 项目不包含用户文件、日志、证书指纹、Team ID、邮箱或个人绝对路径。设置页对用户主目录只显示 `~`。
 
-选择 `FinderToolkit` scheme，按 `Command + R` 运行。
+## 从源码构建
 
-4. 启用扩展：
+环境要求：macOS 13 或更高版本、Xcode 15 或更高版本。打开 `FinderToolkit.xcodeproj` 后，分别为 `FinderToolkit` 和 `FinderToolkitExtension` 选择本机开发团队，再运行 `FinderToolkit` scheme。
 
-系统设置 -> 隐私与安全性 -> 扩展 -> Finder 扩展，勾选 `FinderToolkitExtension`。
-
-## 图标
-
-项目包含 `Assets.xcassets/AppIcon.appiconset`，Xcode 会在构建时生成 `AppIcon.icns` 并写入 bundle 的 `CFBundleIconName`。
-
-如需重新生成图标资源：
-
-```bash
-swift Tools/generate_app_icon.swift
-```
-
-生成后再重新构建 App 即可。
-
-## 打包与安装
-
-下面的命令使用钥匙串内的 Apple Development 证书手动签名。为了避免泄露隐私，不要把真实证书指纹、Team ID、邮箱或个人路径写入仓库；在本机 shell 中用环境变量传入。
-
-1. 查看本机可用的代码签名证书：
-
-```bash
-security find-identity -v -p codesigning
-```
-
-2. 设置本机环境变量：
-
-```bash
-export CERT_SHA1="<Apple Development certificate SHA-1>"
-export DEVELOPMENT_TEAM="<Apple Developer Team ID>"
-```
-
-3. Release 构建并手动签名：
+也可以使用无签名构建检查源码：
 
 ```bash
 xcodebuild \
   -project FinderToolkit.xcodeproj \
   -scheme FinderToolkit \
   -configuration Release \
-  -derivedDataPath build/DerivedData \
-  CODE_SIGN_STYLE=Manual \
-  CODE_SIGN_IDENTITY="$CERT_SHA1" \
-  DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-  clean build
+  -derivedDataPath build/Release \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 ```
 
-构建产物位于：
+## 生成发布 DMG
+
+`Tools/package_release.sh` 会执行 Release 构建、去除本机调试路径、对 App 和 Extension 做 ad-hoc 签名、扫描用户名/主目录/邮箱模式、生成 DMG，并运行 `codesign` 和 `hdiutil verify` 校验：
+
+```bash
+bash Tools/package_release.sh
+```
+
+输出文件为 `dist/FinderToolkit-<version>.dmg`。脚本要求 Xcode 命令行工具和 `hdiutil`，不需要把证书或账号信息写入仓库。要制作可在 Gatekeeper 中直接通过的公开发行版，需要另外配置 Developer ID Application、Developer ID Installer（如有需要）和 Apple notarization 流程。
+
+## 项目结构
 
 ```text
-build/DerivedData/Build/Products/Release/FinderToolkit.app
+FinderToolkit/
+├── FinderToolkit.xcodeproj/
+├── FinderToolkit/                         # 主 App、设置页和 URL 入口
+├── FinderToolkitExtension/                # Finder Sync Extension、菜单和哈希计算
+├── Tools/generate_app_icon.swift           # 重新生成 AppIcon 资源
+├── Tools/package_release.sh                # 构建、隐私扫描和 DMG 打包
+└── docs/images/                            # README 使用截图
 ```
 
-4. 验证签名：
+关键实现：
 
-```bash
-codesign --verify --deep --strict --verbose=2 \
-  build/DerivedData/Build/Products/Release/FinderToolkit.app
+- `FinderSync.swift`：注册 Finder 右键菜单和菜单动作。
+- `AppDelegate.swift`：处理 `findertoolkit://` 请求并展示哈希结果。
+- `SettingsWindowController.swift`：设置页和扩展状态检查。
+- `HashCalculator.swift`：使用流式读取计算多种哈希。
+- `HashTypes.swift`：共享设置格式、规范化和本地存储。
+
+## 发布校验
+
+FinderToolkit 1.1.3 DMG 的 SHA-256：
+
+```text
+70727e9cb72bf19ec393782fc14ba9d5619b73d25cc5e3f3e848e88f93ffe162
 ```
-
-5. 生成 DMG：
-
-```bash
-rm -rf dist/dmgroot
-mkdir -p dist/dmgroot
-ditto build/DerivedData/Build/Products/Release/FinderToolkit.app \
-  dist/dmgroot/FinderToolkit.app
-ln -s /Applications dist/dmgroot/Applications
-
-hdiutil create \
-  -volname FinderToolkit \
-  -srcfolder dist/dmgroot \
-  -ov \
-  -format UDZO \
-  FinderToolkit.dmg
-```
-
-6. 可选：签名并校验 DMG：
-
-```bash
-codesign --force --sign "$CERT_SHA1" --timestamp=none FinderToolkit.dmg
-codesign --verify --verbose=2 FinderToolkit.dmg
-hdiutil verify FinderToolkit.dmg
-```
-
-7. 本机安装：
-
-```bash
-ditto build/DerivedData/Build/Products/Release/FinderToolkit.app \
-  /Applications/FinderToolkit.app
-```
-
-如 Dock 或 Finder 未立即显示新图标，可刷新缓存：
-
-```bash
-APP=/Applications/FinderToolkit.app
-LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister
-
-"$LSREGISTER" -f -R -trusted "$APP"
-mdimport "$APP" || true
-qlmanage -r cache >/dev/null 2>&1 || true
-killall iconservicesagent 2>/dev/null || true
-killall Finder 2>/dev/null || true
-killall Dock 2>/dev/null || true
-```
-
-## 权限说明
-
-Extension 运行在 App Sandbox 中，当前 entitlements 包含：
-
-- `com.apple.security.app-sandbox`
-- `com.apple.security.files.user-selected.read-write`
-- `com.apple.security.automation.apple-events`
-- `com.apple.security.temporary-exception.files.absolute-path.read-write`
-
-Finder Sync 监听根目录 `directoryURLs = [URL(fileURLWithPath: "/")]`，因此能覆盖常规 Finder 窗口。新建文件和打开终端在必要时会通过 Apple Events 回退到 Finder 或 Terminal，因此系统可能会请求自动化权限。
-
-复制路径成功后会发送系统通知；如果用户未授权通知，不影响路径复制本身。
-
-## 调试
-
-查看 Finder Sync Extension 日志：
-
-```bash
-log stream --predicate 'process == "FinderToolkitExtension"' --level debug
-```
-
-也可以在 Xcode 中选择 Debug -> Attach to Process，附加到 `FinderToolkitExtension`。
-
-Finder Sync Extension 崩溃通常不会弹出明显提示，调试时优先查看 Console.app 或 `log stream`。
-
-## 代码说明
-
-- `FinderSync.swift`：注册 Finder 右键菜单，处理复制路径、新建文件、计算 hash、打开终端。
-- `AppDelegate.swift`：主 App 入口，处理 `findertoolkit://` URL scheme，展示 hash 结果，执行需要主 App 协助的文件创建。
-- `HashCalculator.swift`：使用 1 MB buffer 流式读取文件，避免大文件一次性读入内存。
-- `HashResultWindowController.swift`：展示并复制 hash 计算结果。
-- `Tools/generate_app_icon.swift`：生成 AppIcon 所需的多尺寸 PNG。
-
-## 上传到 GitHub 前
-
-建议不要提交以下内容：
-
-- `build/`
-- `dist/`
-- `DerivedData/`
-- `FinderToolkit.dmg`
-- 任何真实证书指纹、开发者账号邮箱、Team ID、个人机器路径或本机日志
-
-README 中的打包命令均使用占位符和环境变量，上传前请确认没有把本机真实签名信息写入文档或脚本。

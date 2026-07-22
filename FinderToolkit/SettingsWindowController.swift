@@ -257,7 +257,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             color: settingsExists ? .systemGreen : .systemOrange
         ))
 
-        let pathLabel = NSTextField(labelWithString: ToolkitSettingsStore.userSettingsURL.path)
+        let pathLabel = NSTextField(labelWithString: displayPath(for: ToolkitSettingsStore.userSettingsURL))
         pathLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         pathLabel.textColor = .tertiaryLabelColor
         pathLabel.lineBreakMode = .byTruncatingMiddle
@@ -420,6 +420,14 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             return ("Finder 扩展已授权启用", .systemGreen)
         }
         return ("Finder 扩展未启用或未授权", .systemRed)
+    }
+
+    private func displayPath(for url: URL) -> String {
+        let components = url.path.split(separator: "/", omittingEmptySubsequences: true)
+        guard components.count >= 3, components[0] == "Users" else {
+            return url.path
+        }
+        return "~/" + components.dropFirst(2).joined(separator: "/")
     }
 
     private func isExtensionProcessRunning(bundleIdentifier: String) -> Bool {

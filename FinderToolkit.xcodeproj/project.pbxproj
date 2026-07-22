@@ -47,28 +47,6 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		A7400001 /* Re-sign Extension with Entitlements */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Re-sign Extension with Entitlements";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Re-sign the extension with entitlements to ensure they are embedded\ncodesign --force --sign \"${CODE_SIGN_IDENTITY}\" --entitlements \"${SRCROOT}/FinderToolkitExtension/FinderToolkitExtension.entitlements\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.appex\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXFileReference section */
 		A2000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A2000010 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -181,7 +159,6 @@
 			buildPhases = (
 				A7200002 /* Sources (Ext) */,
 				A7100002 /* Frameworks (Ext) */,
-				A7400001 /* Re-sign Extension with Entitlements */,
 			);
 			buildRules = ();
 			dependencies = ();
@@ -399,7 +376,6 @@
 				CODE_SIGN_ENTITLEMENTS = FinderToolkit/FinderToolkit.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = K8XRA75TNH;
 				INFOPLIST_FILE = FinderToolkit/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -419,7 +395,6 @@
 				CODE_SIGN_ENTITLEMENTS = FinderToolkit/FinderToolkit.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = K8XRA75TNH;
 				INFOPLIST_FILE = FinderToolkit/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -436,7 +411,6 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FinderToolkitExtension/FinderToolkitExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = K8XRA75TNH;
 				INFOPLIST_FILE = FinderToolkitExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -456,7 +430,6 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FinderToolkitExtension/FinderToolkitExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = K8XRA75TNH;
 				INFOPLIST_FILE = FinderToolkitExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
