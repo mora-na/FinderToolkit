@@ -1,7 +1,7 @@
 # FinderToolkit
 
 FinderToolkit 是一个 macOS Finder Sync Extension，为 Finder 右键菜单增加常用文件操作：
-复制路径、新建文件、计算哈希值、在当前目录打开终端。
+复制路径、新建文件、计算哈希值、在当前目录打开终端或开发工具。
 
 ## 功能
 
@@ -9,8 +9,9 @@ FinderToolkit 是一个 macOS Finder Sync Extension，为 Finder 右键菜单增
 |------|----------|------|
 | 复制路径 | 选中文件、文件夹、空白处、侧边栏、工具栏菜单 | 复制选中项路径；空白处复制当前 Finder 目录路径；多选时按行分隔 |
 | 新建文件 | 选中文件夹、文件或目录空白处 | 在目标目录创建 `txt`、`docx`、`xlsx`、`pptx`、`md`、`csv` 文件，自动避开重名 |
-| 计算 hash | 选中文件 | 对一个或多个文件流式计算 `CRC32`、`MD5`、`SHA1`、`SHA224`、`SHA256`、`SHA384`、`SHA512` |
+| 计算 hash | 选中文件 | 对一个或多个文件流式计算 `CRC32`、`CRC32C`、`MD5`、`SHA1`、`SHA224`、`SHA256`、`SHA384`、`SHA512`、`SM3`；默认启用 `MD5`、`SHA1`、`SHA256` |
 | 打开终端 | 选中文件夹、文件或目录空白处 | 在目标目录打开 Terminal |
+| 在开发工具中打开 | 选中文件夹、文件或目录空白处 | 可在设置页多选 VS Code、Cursor、IntelliJ IDEA、PyCharm、WebStorm、Android Studio、Xcode，Finder 菜单按选择动态显示 |
 
 ## 项目结构
 

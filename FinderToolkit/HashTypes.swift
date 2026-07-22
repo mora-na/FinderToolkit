@@ -1,20 +1,138 @@
 import Foundation
 import Darwin
 
+struct DeveloperTool: Hashable {
+    let identifier: String
+    let displayName: String
+    let menuTitle: String
+    let bundleIdentifiers: [String]
+
+    static let all: [DeveloperTool] = [
+        DeveloperTool(
+            identifier: "vscode",
+            displayName: "VS Code",
+            menuTitle: "在 VS Code 中打开",
+            bundleIdentifiers: ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.visualstudio.code"]
+        ),
+        DeveloperTool(
+            identifier: "cursor",
+            displayName: "Cursor",
+            menuTitle: "在 Cursor 中打开",
+            bundleIdentifiers: ["com.todesktop.230313mzl4w4u92"]
+        ),
+        DeveloperTool(
+            identifier: "idea",
+            displayName: "IntelliJ IDEA",
+            menuTitle: "在 IntelliJ IDEA 中打开",
+            bundleIdentifiers: ["com.jetbrains.intellij", "com.jetbrains.intellij.ce", "com.jetbrains.intellij-EAP"]
+        ),
+        DeveloperTool(
+            identifier: "pycharm",
+            displayName: "PyCharm",
+            menuTitle: "在 PyCharm 中打开",
+            bundleIdentifiers: ["com.jetbrains.pycharm", "com.jetbrains.pycharm.ce"]
+        ),
+        DeveloperTool(
+            identifier: "webstorm",
+            displayName: "WebStorm",
+            menuTitle: "在 WebStorm 中打开",
+            bundleIdentifiers: ["com.jetbrains.WebStorm"]
+        ),
+        DeveloperTool(
+            identifier: "android-studio",
+            displayName: "Android Studio",
+            menuTitle: "在 Android Studio 中打开",
+            bundleIdentifiers: ["com.google.android.studio"]
+        ),
+        DeveloperTool(
+            identifier: "xcode",
+            displayName: "Xcode",
+            menuTitle: "在 Xcode 中打开",
+            bundleIdentifiers: ["com.apple.dt.Xcode"]
+        )
+    ]
+
+    static func tool(withIdentifier identifier: String) -> DeveloperTool? {
+        all.first { $0.identifier == identifier }
+    }
+}
+
+final class HashCancellationToken {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    func reset() {
+        lock.lock()
+        cancelled = false
+        lock.unlock()
+    }
+}
+
 struct ToolkitSettingsPayload: Codable {
     var terminalApp: String
     var newFileTypes: [String]
     var hashAlgorithms: [String]
+    var developerTools: [String]
     var updatedAt: Date
 
     static let defaultNewFileTypes = ["txt", "docx", "xlsx", "pptx", "md", "csv"]
-    static let allHashAlgorithms = ["CRC32", "CRC32C", "MD5", "SHA1", "SHA224", "SHA256", "SHA384", "SHA512"]
+    static let allHashAlgorithms = ["CRC32", "CRC32C", "MD5", "SHA1", "SHA224", "SHA256", "SHA384", "SHA512", "SM3"]
+    static let defaultHashAlgorithms = ["MD5", "SHA1", "SHA256"]
+    static let defaultDeveloperTools = ["vscode"]
+
+    private enum CodingKeys: String, CodingKey {
+        case terminalApp
+        case newFileTypes
+        case hashAlgorithms
+        case developerTools
+        case updatedAt
+    }
+
+    init(
+        terminalApp: String,
+        newFileTypes: [String],
+        hashAlgorithms: [String],
+        developerTools: [String],
+        updatedAt: Date
+    ) {
+        self.terminalApp = terminalApp
+        self.newFileTypes = newFileTypes
+        self.hashAlgorithms = hashAlgorithms
+        self.developerTools = developerTools
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        terminalApp = try container.decodeIfPresent(String.self, forKey: .terminalApp) ?? "terminal"
+        newFileTypes = try container.decodeIfPresent([String].self, forKey: .newFileTypes)
+            ?? Self.defaultNewFileTypes
+        hashAlgorithms = try container.decodeIfPresent([String].self, forKey: .hashAlgorithms)
+            ?? Self.defaultHashAlgorithms
+        developerTools = try container.decodeIfPresent([String].self, forKey: .developerTools)
+            ?? Self.defaultDeveloperTools
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+            ?? Date(timeIntervalSince1970: 0)
+    }
 
     static var defaults: ToolkitSettingsPayload {
         ToolkitSettingsPayload(
             terminalApp: "terminal",
             newFileTypes: defaultNewFileTypes,
-            hashAlgorithms: allHashAlgorithms,
+            hashAlgorithms: defaultHashAlgorithms,
+            developerTools: defaultDeveloperTools,
             updatedAt: Date(timeIntervalSince1970: 0)
         )
     }
@@ -24,6 +142,7 @@ struct ToolkitSettingsPayload: Codable {
             terminalApp: terminalApp == "iterm2" ? "iterm2" : "terminal",
             newFileTypes: Self.normalizedFileTypes(newFileTypes),
             hashAlgorithms: Self.normalizedHashAlgorithms(hashAlgorithms),
+            developerTools: Self.normalizedDeveloperTools(developerTools),
             updatedAt: updatedAt
         )
     }
@@ -35,7 +154,13 @@ struct ToolkitSettingsPayload: Codable {
                     .trimmingCharacters(in: CharacterSet(charactersIn: "."))
                     .lowercased()
             }
-            .filter { !$0.isEmpty && !$0.contains("/") && !$0.contains(":") }
+            .filter { value in
+                !value.isEmpty
+                    && value.count <= 64
+                    && !value.contains("/")
+                    && !value.contains(":")
+                    && value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+            }
 
         let unique = normalized.reduce(into: [String]()) { result, value in
             if !result.contains(value) {
@@ -43,7 +168,8 @@ struct ToolkitSettingsPayload: Codable {
             }
         }
 
-        return unique.isEmpty ? defaultNewFileTypes : unique
+        let bounded = Array(unique.prefix(64))
+        return bounded.isEmpty ? defaultNewFileTypes : bounded
     }
 
     static func normalizedHashAlgorithms(_ values: [String]) -> [String] {
@@ -53,13 +179,29 @@ struct ToolkitSettingsPayload: Codable {
                 result.append(value)
             }
         }
-        return unique.isEmpty ? allHashAlgorithms : unique
+        return unique.isEmpty ? defaultHashAlgorithms : unique
+    }
+
+    static func normalizedDeveloperTools(_ values: [String]) -> [String] {
+        let enabled = Set(values)
+        return DeveloperTool.all
+            .map(\.identifier)
+            .filter { enabled.contains($0) }
     }
 }
 
 enum ToolkitSettingsStore {
+    private enum StoreError: LocalizedError {
+        case noWritableDestination
+
+        var errorDescription: String? {
+            "没有可写入的设置目录"
+        }
+    }
+
     static let appGroupIdentifier = "group.com.pandkided.FinderToolkit"
     private static let fileName = "settings.json"
+    private static let maximumSettingsFileSize = 1_048_576
 
     static var userSettingsURL: URL {
         URL(fileURLWithPath: realUserHomeDirectory())
@@ -77,21 +219,30 @@ enum ToolkitSettingsStore {
 
     static func load() -> ToolkitSettingsPayload {
         let urls = [userSettingsURL, appGroupSettingsURL].compactMap { $0 }
+        var candidates: [ToolkitSettingsPayload] = []
         for url in urls {
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
             do {
+                let values = try url.resourceValues(forKeys: [.fileSizeKey])
+                guard (values.fileSize ?? 0) <= maximumSettingsFileSize else {
+                    NSLog("FinderToolkit settings load skipped oversized file %@", url.path)
+                    continue
+                }
                 let data = try Data(contentsOf: url)
-                return try JSONDecoder().decode(ToolkitSettingsPayload.self, from: data).normalized
+                let payload = try JSONDecoder().decode(ToolkitSettingsPayload.self, from: data).normalized
+                candidates.append(payload)
             } catch {
                 NSLog("FinderToolkit settings load skipped %@: %@", url.path, error.localizedDescription)
             }
         }
-        return .defaults
+        return candidates.max { $0.updatedAt < $1.updatedAt } ?? .defaults
     }
 
     static func save(_ payload: ToolkitSettingsPayload) throws {
         let normalized = payload.normalized
         let data = try JSONEncoder().encode(normalized)
         var firstError: Error?
+        var savedCount = 0
 
         for url in [userSettingsURL, appGroupSettingsURL].compactMap({ $0 }) {
             do {
@@ -100,6 +251,7 @@ enum ToolkitSettingsStore {
                     withIntermediateDirectories: true
                 )
                 try data.write(to: url, options: [.atomic])
+                savedCount += 1
             } catch {
                 NSLog("FinderToolkit settings save failed %@: %@", url.path, error.localizedDescription)
                 if firstError == nil {
@@ -108,8 +260,8 @@ enum ToolkitSettingsStore {
             }
         }
 
-        if let firstError {
-            throw firstError
+        if savedCount == 0 {
+            throw firstError ?? StoreError.noWritableDestination
         }
     }
 
@@ -131,6 +283,7 @@ struct HashResult {
     let sha256: String
     let sha384: String
     let sha512: String
+    let sm3: String
 }
 
 enum HashError: Error, LocalizedError {
@@ -147,4 +300,4 @@ enum HashError: Error, LocalizedError {
     }
 }
 
-let defaultHashAlgorithms = ["CRC32", "CRC32C", "MD5", "SHA1", "SHA224", "SHA256", "SHA384", "SHA512"]
+let defaultHashAlgorithms = ToolkitSettingsPayload.defaultHashAlgorithms

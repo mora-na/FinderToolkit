@@ -4,6 +4,8 @@ import UserNotifications
 
 @objc(FinderSync)
 class FinderSync: FIFinderSync {
+    private var developerToolTargetDirectory: URL?
+
     override init() {
         super.init()
         // 监听整个文件系统根目录
@@ -18,10 +20,11 @@ class FinderSync: FIFinderSync {
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
         let menu = NSMenu(title: "FinderToolkit")
         NSLog(
-            "FinderToolkit menu settings terminal=%@ fileTypes=%@ hashAlgorithms=%@ settingsFile=%@",
+            "FinderToolkit menu settings terminal=%@ fileTypes=%@ hashAlgorithms=%@ developerTools=%@ settingsFile=%@",
             ExtensionSettings.useITerm2 ? "iterm2" : "terminal",
             ExtensionSettings.newFileTypes.joined(separator: ","),
             ExtensionSettings.enabledHashAlgorithms.joined(separator: ","),
+            ExtensionSettings.enabledDeveloperTools.map(\.identifier).joined(separator: ","),
             ToolkitSettingsStore.userSettingsURL.path
         )
 
@@ -29,18 +32,18 @@ class FinderSync: FIFinderSync {
 
         // 右键点击「选中的文件/文件夹」时
         case .contextualMenuForItems:
+            addNewFileItem(to: menu)
             addCopyPathItem(to: menu)
             addHashItem(to: menu)
             addOpenTerminalItem(to: menu)
-            addOpenVSCodeItem(to: menu)
-            addNewFileItem(to: menu)
+            addDeveloperToolItems(to: menu)
 
         // 右键点击「文件夹空白处」时
         case .contextualMenuForContainer:
+            addNewFileItem(to: menu)
             addCopyPathItem(to: menu)
             addOpenTerminalItem(to: menu)
-            addOpenVSCodeItem(to: menu)
-            addNewFileItem(to: menu)
+            addDeveloperToolItems(to: menu)
 
         // 侧边栏右键
         case .contextualMenuForSidebar:
@@ -112,14 +115,32 @@ class FinderSync: FIFinderSync {
         menu.addItem(item)
     }
 
-    private func addOpenVSCodeItem(to menu: NSMenu) {
-        let item = NSMenuItem(
-            title: "在 VS Code 中打开",
-            action: #selector(openVSCode(_:)),
-            keyEquivalent: ""
-        )
-        item.target = self
-        menu.addItem(item)
+    private func addDeveloperToolItems(to menu: NSMenu) {
+        developerToolTargetDirectory = currentTargetDirectory()
+
+        for tool in ExtensionSettings.enabledDeveloperTools {
+            guard let action = developerToolAction(for: tool.identifier) else { continue }
+            let item = NSMenuItem(
+                title: tool.menuTitle,
+                action: action,
+                keyEquivalent: ""
+            )
+            item.target = self
+            menu.addItem(item)
+        }
+    }
+
+    private func developerToolAction(for identifier: String) -> Selector? {
+        switch identifier {
+        case "vscode": return #selector(openVSCode(_:))
+        case "cursor": return #selector(openCursor(_:))
+        case "idea": return #selector(openIntelliJIDEA(_:))
+        case "pycharm": return #selector(openPyCharm(_:))
+        case "webstorm": return #selector(openWebStorm(_:))
+        case "android-studio": return #selector(openAndroidStudio(_:))
+        case "xcode": return #selector(openXcode(_:))
+        default: return nil
+        }
     }
 
     // MARK: - 功能一：复制路径
@@ -288,21 +309,27 @@ class FinderSync: FIFinderSync {
         }
     }
 
-    // MARK: - 功能五：在 VS Code 中打开
+    // MARK: - 功能五：在开发工具中打开
 
-    @objc func openVSCode(_ sender: AnyObject?) {
-        guard let targetDirectory = currentTargetDirectory() else { return }
+    @objc private func openVSCode(_ sender: AnyObject?) { openDeveloperTool(identifier: "vscode") }
+    @objc private func openCursor(_ sender: AnyObject?) { openDeveloperTool(identifier: "cursor") }
+    @objc private func openIntelliJIDEA(_ sender: AnyObject?) { openDeveloperTool(identifier: "idea") }
+    @objc private func openPyCharm(_ sender: AnyObject?) { openDeveloperTool(identifier: "pycharm") }
+    @objc private func openWebStorm(_ sender: AnyObject?) { openDeveloperTool(identifier: "webstorm") }
+    @objc private func openAndroidStudio(_ sender: AnyObject?) { openDeveloperTool(identifier: "android-studio") }
+    @objc private func openXcode(_ sender: AnyObject?) { openDeveloperTool(identifier: "xcode") }
 
-        let bundleIdentifiers = [
-            "com.microsoft.VSCode",
-            "com.microsoft.VSCodeInsiders",
-            "com.visualstudio.code"
-        ]
+    private func openDeveloperTool(identifier: String) {
+        guard let tool = DeveloperTool.tool(withIdentifier: identifier) else { return }
+        guard let targetDirectory = resolvedDeveloperToolTargetDirectory() else {
+            showAlert(title: "打开 \(tool.displayName) 失败", message: "无法确定 Finder 当前目录，请重新打开菜单后再试。")
+            return
+        }
 
-        guard let appURL = bundleIdentifiers
+        guard let appURL = tool.bundleIdentifiers
             .compactMap({ NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) })
             .first else {
-            showAlert(title: "打开 VS Code 失败", message: "未找到 Visual Studio Code。")
+            showAlert(title: "打开 \(tool.displayName) 失败", message: "未找到 \(tool.displayName)，请确认应用已安装。")
             return
         }
 
@@ -316,7 +343,7 @@ class FinderSync: FIFinderSync {
             guard let error else { return }
             DispatchQueue.main.async {
                 self?.showAlert(
-                    title: "打开 VS Code 失败",
+                    title: "打开 \(tool.displayName) 失败",
                     message: "\(targetDirectory.path)\n\(error.localizedDescription)"
                 )
             }
@@ -331,11 +358,33 @@ class FinderSync: FIFinderSync {
         if let first = selectedURLs.first {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: first.path, isDirectory: &isDir) {
-                return isDir.boolValue ? first : first.deletingLastPathComponent()
+                return existingDirectory(isDir.boolValue ? first : first.deletingLastPathComponent())
             }
         }
 
-        return FIFinderSyncController.default().targetedURL()
+        guard let targetedURL = FIFinderSyncController.default().targetedURL() else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: targetedURL.path, isDirectory: &isDirectory) else {
+            return nil
+        }
+        return existingDirectory(isDirectory.boolValue ? targetedURL : targetedURL.deletingLastPathComponent())
+    }
+
+    private func resolvedDeveloperToolTargetDirectory() -> URL? {
+        if let cached = developerToolTargetDirectory,
+           let directory = existingDirectory(cached) {
+            return directory
+        }
+        return currentTargetDirectory()
+    }
+
+    private func existingDirectory(_ url: URL) -> URL? {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return nil
+        }
+        return url.standardizedFileURL
     }
 
     private func uniqueFileURL(

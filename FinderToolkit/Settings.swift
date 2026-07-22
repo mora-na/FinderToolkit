@@ -10,6 +10,7 @@ enum Settings {
         static let terminalApp = "terminal_app"
         static let newFileTypes = "new_file_types"
         static let hashAlgorithms = "hash_algorithms"
+        static let developerTools = "developer_tools"
         static let settingsVersion = "settings_version"
         static let updatedAt = "settings_updated_at"
     }
@@ -41,7 +42,12 @@ enum Settings {
             return value
         }
         set {
-            save(terminalApp: newValue, newFileTypes: newFileTypes, enabledHashAlgorithms: enabledHashAlgorithms)
+            save(
+                terminalApp: newValue,
+                newFileTypes: newFileTypes,
+                enabledHashAlgorithms: enabledHashAlgorithms,
+                enabledDeveloperTools: enabledDeveloperTools
+            )
         }
     }
 
@@ -67,20 +73,50 @@ enum Settings {
             ToolkitSettingsStore.load().newFileTypes
         }
         set {
-            save(terminalApp: terminalApp, newFileTypes: newValue, enabledHashAlgorithms: enabledHashAlgorithms)
+            save(
+                terminalApp: terminalApp,
+                newFileTypes: newValue,
+                enabledHashAlgorithms: enabledHashAlgorithms,
+                enabledDeveloperTools: enabledDeveloperTools
+            )
         }
     }
 
     // MARK: - Hash Algorithms
 
-    static let allHashAlgorithms = defaultHashAlgorithms
+    static let allHashAlgorithms = ToolkitSettingsPayload.allHashAlgorithms
+    static let defaultHashAlgorithms = ToolkitSettingsPayload.defaultHashAlgorithms
 
     static var enabledHashAlgorithms: [String] {
         get {
             ToolkitSettingsStore.load().hashAlgorithms
         }
         set {
-            save(terminalApp: terminalApp, newFileTypes: newFileTypes, enabledHashAlgorithms: newValue)
+            save(
+                terminalApp: terminalApp,
+                newFileTypes: newFileTypes,
+                enabledHashAlgorithms: newValue,
+                enabledDeveloperTools: enabledDeveloperTools
+            )
+        }
+    }
+
+    // MARK: - Developer Tools
+
+    static let allDeveloperTools = DeveloperTool.all
+    static let defaultDeveloperTools = ToolkitSettingsPayload.defaultDeveloperTools
+
+    static var enabledDeveloperTools: [String] {
+        get {
+            ToolkitSettingsStore.load().developerTools
+        }
+        set {
+            save(
+                terminalApp: terminalApp,
+                newFileTypes: newFileTypes,
+                enabledHashAlgorithms: enabledHashAlgorithms,
+                enabledDeveloperTools: newValue
+            )
         }
     }
 
@@ -89,35 +125,43 @@ enum Settings {
         return date.timeIntervalSince1970 > 0 ? date : object(forKey: Key.updatedAt) as? Date
     }
 
+    @discardableResult
     static func save(
         terminalApp: TerminalApp,
         newFileTypes: [String],
-        enabledHashAlgorithms: [String]
-    ) {
+        enabledHashAlgorithms: [String],
+        enabledDeveloperTools: [String]
+    ) -> Bool {
         let payload = ToolkitSettingsPayload(
             terminalApp: terminalApp.rawValue,
             newFileTypes: normalizedFileTypes(newFileTypes),
             hashAlgorithms: normalizedHashAlgorithms(enabledHashAlgorithms),
+            developerTools: normalizedDeveloperTools(enabledDeveloperTools),
             updatedAt: Date()
         )
+        let sharedFileSaved: Bool
         do {
             try ToolkitSettingsStore.save(payload)
+            sharedFileSaved = true
         } catch {
             NSLog("FinderToolkit could not persist shared settings file: %@", error.localizedDescription)
+            sharedFileSaved = false
         }
 
         set(terminalApp.rawValue, forKey: Key.terminalApp)
         set(payload.newFileTypes, forKey: Key.newFileTypes)
         set(payload.hashAlgorithms, forKey: Key.hashAlgorithms)
+        set(payload.developerTools, forKey: Key.developerTools)
         set(1, forKey: Key.settingsVersion)
         set(payload.updatedAt, forKey: Key.updatedAt)
         synchronize()
+        return sharedFileSaved
     }
 
     // MARK: - Helpers
 
     static func resetAll() {
-        [Key.terminalApp, Key.newFileTypes, Key.hashAlgorithms, Key.settingsVersion, Key.updatedAt].forEach {
+        [Key.terminalApp, Key.newFileTypes, Key.hashAlgorithms, Key.developerTools, Key.settingsVersion, Key.updatedAt].forEach {
             suiteDefaults?.removeObject(forKey: $0)
             standardDefaults.removeObject(forKey: $0)
         }
@@ -134,6 +178,10 @@ enum Settings {
 
     static func normalizedHashAlgorithms(_ values: [String]) -> [String] {
         ToolkitSettingsPayload.normalizedHashAlgorithms(values)
+    }
+
+    static func normalizedDeveloperTools(_ values: [String]) -> [String] {
+        ToolkitSettingsPayload.normalizedDeveloperTools(values)
     }
 
     private static func string(forKey key: String) -> String? {

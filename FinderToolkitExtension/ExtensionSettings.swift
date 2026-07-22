@@ -8,6 +8,7 @@ enum ExtensionSettings {
         static let terminalApp = "terminal_app"
         static let newFileTypes = "new_file_types"
         static let hashAlgorithms = "hash_algorithms"
+        static let developerTools = "developer_tools"
     }
 
     static var useITerm2: Bool {
@@ -22,10 +23,15 @@ enum ExtensionSettings {
 
     // MARK: - Hash Algorithms
 
-    static let allHashAlgorithms = defaultHashAlgorithms
+    static let allHashAlgorithms = ToolkitSettingsPayload.allHashAlgorithms
+    static let defaultHashAlgorithms = ToolkitSettingsPayload.defaultHashAlgorithms
 
     static var enabledHashAlgorithms: [String] {
         settings.hashAlgorithms
+    }
+
+    static var enabledDeveloperTools: [DeveloperTool] {
+        settings.developerTools.compactMap(DeveloperTool.tool(withIdentifier:))
     }
 
     private static var settings: ToolkitSettingsPayload {
@@ -37,7 +43,9 @@ enum ExtensionSettings {
         return ToolkitSettingsPayload(
             terminalApp: suiteDefaults?.string(forKey: Key.terminalApp) ?? "terminal",
             newFileTypes: suiteDefaults?.stringArray(forKey: Key.newFileTypes) ?? defaultNewFileTypes,
-            hashAlgorithms: suiteDefaults?.stringArray(forKey: Key.hashAlgorithms) ?? allHashAlgorithms,
+            hashAlgorithms: suiteDefaults?.stringArray(forKey: Key.hashAlgorithms) ?? defaultHashAlgorithms,
+            developerTools: suiteDefaults?.stringArray(forKey: Key.developerTools)
+                ?? ToolkitSettingsPayload.defaultDeveloperTools,
             updatedAt: Date(timeIntervalSince1970: 0)
         ).normalized
     }

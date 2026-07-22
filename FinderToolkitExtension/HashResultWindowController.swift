@@ -20,7 +20,7 @@ final class HashResultWindowController: NSWindowController {
     var onStart: (([String]) -> Void)?
     var onCancel: (() -> Void)?
     var onClose: (() -> Void)?
-    var cancelFlag = UnsafeMutablePointer<Bool>.allocate(capacity: 1)
+    let cancellationToken = HashCancellationToken()
 
     init() {
         let window = NSWindow(
@@ -42,10 +42,6 @@ final class HashResultWindowController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
-        cancelFlag.deallocate()
-    }
-
     func present() {
         NSApp.activate(ignoringOtherApps: true)
         NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
@@ -56,7 +52,9 @@ final class HashResultWindowController: NSWindowController {
 
         let key = Unmanaged.passUnretained(self).toOpaque()
         retainedKey = UnsafeRawPointer(key)
-        objc_setAssociatedObject(NSApp, key, self, .OBJC_ASSOCIATION_RETAIN)
+        if let application = NSApp {
+            objc_setAssociatedObject(application, key, self, .OBJC_ASSOCIATION_RETAIN)
+        }
     }
 
     func configurePreparation(message: String, algorithms: [String]) {
@@ -73,7 +71,7 @@ final class HashResultWindowController: NSWindowController {
         cancelButton.isEnabled = true
 
         algorithmCheckboxes.forEach { $0.removeFromSuperview() }
-        algorithmCheckboxes = defaultHashAlgorithms.map { algorithm in
+        algorithmCheckboxes = ToolkitSettingsPayload.allHashAlgorithms.map { algorithm in
             let checkbox = NSButton(checkboxWithTitle: algorithm, target: nil, action: nil)
             checkbox.state = algorithms.contains(algorithm) ? .on : .off
             checkbox.widthAnchor.constraint(equalToConstant: 112).isActive = true
@@ -87,7 +85,7 @@ final class HashResultWindowController: NSWindowController {
     }
 
     func showProgress(message: String) {
-        cancelFlag.pointee = false
+        cancellationToken.reset()
         titleLabel.stringValue = "正在计算哈希"
         statusLabel.stringValue = message
         textView.string = "正在读取文件..."
@@ -241,7 +239,7 @@ final class HashResultWindowController: NSWindowController {
 
     @objc private func cancelOrClose() {
         if !progressIndicator.isHidden {
-            cancelFlag.pointee = true
+            cancellationToken.cancel()
             cancelButton.isEnabled = false
             cancelButton.title = "取消中..."
             onCancel?()
@@ -265,8 +263,8 @@ final class HashResultWindowController: NSWindowController {
     }
 
     private func releaseRetain() {
-        if let retainedKey {
-            objc_setAssociatedObject(NSApp, retainedKey, nil, .OBJC_ASSOCIATION_RETAIN)
+        if let retainedKey, let application = NSApp {
+            objc_setAssociatedObject(application, retainedKey, nil, .OBJC_ASSOCIATION_RETAIN)
             self.retainedKey = nil
         }
     }

@@ -124,8 +124,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let fileURLs = filePaths.map { URL(fileURLWithPath: $0) }
-        let totalSize = fileURLs.reduce(Int64(0)) { $0 + fileSizeInBytes($1) }
+        let fileURLs = Array(filePaths.prefix(256)).map { URL(fileURLWithPath: $0) }
+        let totalSize = fileURLs.reduce(Int64(0)) { saturatingAdd($0, fileSizeInBytes($1)) }
         let defaultAlgorithms = Settings.enabledHashAlgorithms
         let needsConfirmation = totalSize >= largeHashThreshold
 
@@ -162,7 +162,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             controller.present()
         } else {
             controller.onCancel = { [weak controller] in
-                controller?.cancelFlag.pointee = true
+                controller?.cancellationToken.cancel()
             }
             startCalculation(defaultAlgorithms)
         }
@@ -175,10 +175,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         showsProgress: Bool,
         controller: HashResultWindowController
     ) {
-        controller.cancelFlag.pointee = false
+        controller.cancellationToken.reset()
         controller.onStart = nil
         controller.onCancel = { [weak controller] in
-            controller?.cancelFlag.pointee = true
+            controller?.cancellationToken.cancel()
         }
         if showsProgress {
             controller.showProgress(message: "\(fileURLs.count) 个文件，合计 \(formatByteCount(totalSize))")
@@ -188,7 +188,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             var completedBytes: Int64 = 0
 
             for url in fileURLs {
-                if controller.cancelFlag.pointee {
+                if controller.cancellationToken.isCancelled {
                     lines.append("计算已取消")
                     break
                 }
@@ -205,11 +205,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         guard showsProgress else { return }
                         let currentBytes = Int64(Double(currentSize) * progress)
                         let totalProgress = totalSize > 0
-                            ? Double(completedBytes + currentBytes) / Double(totalSize)
+                            ? Double(self.saturatingAdd(completedBytes, currentBytes)) / Double(totalSize)
                             : 1
                         controller.updateProgress(totalProgress)
                     },
-                    isCancelled: controller.cancelFlag
+                    cancellationToken: controller.cancellationToken
                 ) {
                 case .success(let result):
                     if algorithms.contains("CRC32") { lines.append("CRC32  : \(result.crc32)") }
@@ -220,17 +220,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     if algorithms.contains("SHA256") { lines.append("SHA256 : \(result.sha256)") }
                     if algorithms.contains("SHA384") { lines.append("SHA384 : \(result.sha384)") }
                     if algorithms.contains("SHA512") { lines.append("SHA512 : \(result.sha512)") }
+                    if algorithms.contains("SM3") { lines.append("SM3    : \(result.sm3)") }
                 case .failure(let error):
                     lines.append("计算失败：\(error.localizedDescription)")
                 }
 
-                completedBytes += currentSize
+                completedBytes = self.saturatingAdd(completedBytes, currentSize)
                 lines.append("")
             }
 
             let result = lines.joined(separator: "\n")
             DispatchQueue.main.async {
-                if controller.cancelFlag.pointee {
+                if controller.cancellationToken.isCancelled {
                     controller.showFailure(result.isEmpty ? "计算已取消" : result)
                 } else {
                     controller.showResult(result)
@@ -240,7 +241,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func fileSizeInBytes(_ url: URL) -> Int64 {
-        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+        max(0, (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0)
+    }
+
+    private func saturatingAdd(_ lhs: Int64, _ rhs: Int64) -> Int64 {
+        let (value, overflow) = lhs.addingReportingOverflow(rhs)
+        return overflow ? Int64.max : value
     }
 
     private func formatByteCount(_ bytes: Int64) -> String {

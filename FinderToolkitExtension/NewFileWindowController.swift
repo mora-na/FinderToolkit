@@ -1,6 +1,6 @@
 import Cocoa
 
-class NewFileWindowController: NSWindowController {
+class NewFileWindowController: NSWindowController, NSWindowDelegate {
 
     // 文件类型预设
     private let fileTemplates: [(name: String, ext: String)] = [
@@ -21,21 +21,31 @@ class NewFileWindowController: NSWindowController {
     private var targetDirectory: URL!
     private var nameField: NSTextField!
     private var typePopup: NSPopUpButton!
+    private var retainedKey: UnsafeRawPointer?
 
     // MARK: - 静态入口
 
     static func show(in directory: URL) {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return
+        }
         let controller = NewFileWindowController(directory: directory)
         NSApp.activate(ignoringOtherApps: true)
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         // 用 objc_setAssociatedObject 保持强引用，防止 ARC 释放
-        objc_setAssociatedObject(
-            NSApp,
-            Unmanaged.passUnretained(controller).toOpaque(),
-            controller,
-            .OBJC_ASSOCIATION_RETAIN
-        )
+        let key = UnsafeRawPointer(Unmanaged.passUnretained(controller).toOpaque())
+        controller.retainedKey = key
+        if let application = NSApp {
+            objc_setAssociatedObject(
+                application,
+                key,
+                controller,
+                .OBJC_ASSOCIATION_RETAIN
+            )
+        }
     }
 
     // MARK: - 初始化
@@ -51,6 +61,7 @@ class NewFileWindowController: NSWindowController {
         window.center()
         self.init(window: window)
         self.targetDirectory = directory
+        window.delegate = self
         setupUI()
     }
 
@@ -144,6 +155,7 @@ class NewFileWindowController: NSWindowController {
 
     @objc private func typeChanged(_ sender: NSPopUpButton) {
         let index = sender.indexOfSelectedItem
+        guard fileTemplates.indices.contains(index) else { return }
         let template = fileTemplates[index]
 
         if template.ext == "custom" {
@@ -158,10 +170,15 @@ class NewFileWindowController: NSWindowController {
     }
 
     @objc private func create() {
-        let fileName = nameField.stringValue.trimmingCharacters(in: .whitespaces)
+        let fileName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !fileName.isEmpty else {
             showError("文件名不能为空")
+            return
+        }
+
+        guard fileName.count <= 255 else {
+            showError("文件名不能超过 255 个字符")
             return
         }
 
@@ -199,12 +216,17 @@ class NewFileWindowController: NSWindowController {
 
     private func closeWindow() {
         window?.close()
-        objc_setAssociatedObject(
-            NSApp,
-            Unmanaged.passUnretained(self).toOpaque(),
-            nil,
-            .OBJC_ASSOCIATION_RETAIN
-        )
+    }
+
+    private func releaseRetain() {
+        if let retainedKey, let application = NSApp {
+            objc_setAssociatedObject(application, retainedKey, nil, .OBJC_ASSOCIATION_RETAIN)
+        }
+        retainedKey = nil
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        releaseRetain()
     }
 
     private func showError(_ message: String) {

@@ -11,21 +11,23 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private var fileTypeInput: NSTextField!
     private var statusLabel: NSTextField!
     private var hashCheckboxes: [NSButton] = []
+    private var developerToolCheckboxes: [NSButton] = []
 
     private var pendingTerminalApp = Settings.terminalApp
     private var pendingFileTypes = Settings.newFileTypes
     private var pendingHashAlgorithms = Settings.enabledHashAlgorithms
+    private var pendingDeveloperTools = Settings.enabledDeveloperTools
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 860, height: 580),
+            contentRect: NSRect(x: 0, y: 0, width: 880, height: 680),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "FinderToolkit 设置"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 820, height: 540)
+        window.minSize = NSSize(width: 860, height: 650)
         self.init(window: window)
         window.contentView = buildContentView()
     }
@@ -97,16 +99,16 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         for index in 0..<2 {
             grid.column(at: index).xPlacement = .fill
-            grid.column(at: index).width = 398
+            grid.column(at: index).width = 408
         }
-        grid.row(at: 0).height = 184
-        grid.row(at: 1).height = 280
+        grid.row(at: 0).height = 220
+        grid.row(at: 1).height = 300
 
         return grid
     }
 
     private func buildGeneralModule() -> NSView {
-        let stack = moduleStack(title: "默认工具", subtitle: "控制 Finder 菜单中固定功能的默认行为。")
+        let stack = moduleStack(title: "终端与开发工具", subtitle: "勾选的开发工具会显示在 Finder 菜单中。")
 
         let terminalRow = formRow(label: "打开终端")
         terminalPopup = NSPopUpButton()
@@ -120,13 +122,31 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         terminalPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 210).isActive = true
         terminalRow.addArrangedSubview(terminalPopup)
 
-        let vscodeRow = formRow(label: "VS Code")
-        let vscodeLabel = NSTextField(labelWithString: "显示“在 VS Code 中打开”")
-        vscodeLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        vscodeRow.addArrangedSubview(vscodeLabel)
-
         stack.addArrangedSubview(terminalRow)
-        stack.addArrangedSubview(vscodeRow)
+
+        let enabledTools = Set(pendingDeveloperTools)
+        developerToolCheckboxes = Settings.allDeveloperTools.enumerated().map { index, tool in
+            let checkbox = NSButton(
+                checkboxWithTitle: tool.displayName,
+                target: self,
+                action: #selector(developerToolChanged(_:))
+            )
+            checkbox.tag = index
+            checkbox.state = enabledTools.contains(tool.identifier) ? .on : .off
+            checkbox.widthAnchor.constraint(equalToConstant: 116).isActive = true
+            return checkbox
+        }
+
+        for rowStart in stride(from: 0, to: developerToolCheckboxes.count, by: 3) {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+            for checkbox in developerToolCheckboxes[rowStart..<min(rowStart + 3, developerToolCheckboxes.count)] {
+                row.addArrangedSubview(checkbox)
+            }
+            stack.addArrangedSubview(row)
+        }
         return moduleBox(stack)
     }
 
@@ -359,12 +379,18 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        let completion = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in completion.signal() }
 
         do {
             try process.run()
-            process.waitUntilExit()
         } catch {
             return ("无法检测扩展授权状态", .systemOrange)
+        }
+
+        if completion.wait(timeout: .now() + 3) == .timedOut {
+            process.terminate()
+            return ("扩展授权状态检测超时", .systemOrange)
         }
 
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -419,6 +445,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        guard pendingFileTypes.indices.contains(row) else { return nil }
         let identifier = Column.fileType
         let textField = tableView.makeView(withIdentifier: identifier, owner: self) as? NSTextField
             ?? NSTextField()
@@ -464,6 +491,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     @objc private func hashChanged(_ sender: NSButton) {
+        guard Settings.allHashAlgorithms.indices.contains(sender.tag) else { return }
         let algorithm = Settings.allHashAlgorithms[sender.tag]
         if sender.state == .on {
             if !pendingHashAlgorithms.contains(algorithm) {
@@ -472,6 +500,19 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         } else {
             pendingHashAlgorithms.removeAll { $0 == algorithm }
         }
+    }
+
+    @objc private func developerToolChanged(_ sender: NSButton) {
+        guard Settings.allDeveloperTools.indices.contains(sender.tag) else { return }
+        let identifier = Settings.allDeveloperTools[sender.tag].identifier
+        if sender.state == .on {
+            if !pendingDeveloperTools.contains(identifier) {
+                pendingDeveloperTools.append(identifier)
+            }
+        } else {
+            pendingDeveloperTools.removeAll { $0 == identifier }
+        }
+        pendingDeveloperTools = Settings.normalizedDeveloperTools(pendingDeveloperTools)
     }
 
     @objc private func addFileTypes() {
@@ -505,10 +546,18 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     @objc private func resetSettings() {
         pendingTerminalApp = .terminal
         pendingFileTypes = Settings.defaultNewFileTypes
-        pendingHashAlgorithms = Settings.allHashAlgorithms
+        pendingHashAlgorithms = Settings.defaultHashAlgorithms
+        pendingDeveloperTools = Settings.defaultDeveloperTools
         terminalPopup.selectItem(at: 0)
-        for checkbox in hashCheckboxes {
-            checkbox.state = .on
+        for (index, checkbox) in hashCheckboxes.enumerated() {
+            checkbox.state = Settings.defaultHashAlgorithms.contains(
+                Settings.allHashAlgorithms[index]
+            ) ? .on : .off
+        }
+        for (index, checkbox) in developerToolCheckboxes.enumerated() {
+            checkbox.state = Settings.defaultDeveloperTools.contains(
+                Settings.allDeveloperTools[index].identifier
+            ) ? .on : .off
         }
         fileTypeTable.reloadData()
         statusLabel.stringValue = "已恢复为默认值，点击保存后生效"
@@ -518,14 +567,21 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     @objc private func saveSettings() {
         pendingFileTypes = Settings.normalizedFileTypes(pendingFileTypes)
         pendingHashAlgorithms = Settings.normalizedHashAlgorithms(pendingHashAlgorithms)
-        Settings.save(
+        pendingDeveloperTools = Settings.normalizedDeveloperTools(pendingDeveloperTools)
+        let saved = Settings.save(
             terminalApp: pendingTerminalApp,
             newFileTypes: pendingFileTypes,
-            enabledHashAlgorithms: pendingHashAlgorithms
+            enabledHashAlgorithms: pendingHashAlgorithms,
+            enabledDeveloperTools: pendingDeveloperTools
         )
         fileTypeTable.reloadData()
-        statusLabel.stringValue = "已保存，Finder 扩展下次打开菜单时生效"
-        statusLabel.textColor = .systemGreen
+        if saved {
+            statusLabel.stringValue = "已保存，Finder 扩展下次打开菜单时生效"
+            statusLabel.textColor = .systemGreen
+        } else {
+            statusLabel.stringValue = "保存失败，请检查设置目录权限后重试"
+            statusLabel.textColor = .systemRed
+        }
     }
 
     @objc private func openSystemSettings() {
@@ -541,12 +597,19 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                     .trimmingCharacters(in: CharacterSet(charactersIn: "."))
                     .lowercased()
             }
-            .filter { !$0.isEmpty && !$0.contains("/") && !$0.contains(":") }
+            .filter { value in
+                !value.isEmpty
+                    && value.count <= 64
+                    && !value.contains("/")
+                    && !value.contains(":")
+                    && value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+            }
 
-        return normalized.reduce(into: [String]()) { result, value in
+        let unique = normalized.reduce(into: [String]()) { result, value in
             if !result.contains(value) {
                 result.append(value)
             }
         }
+        return Array(unique.prefix(64))
     }
 }
