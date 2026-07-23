@@ -20,22 +20,59 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 880, height: 680),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 920, height: 720),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "FinderToolkit 设置"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.isMovableByWindowBackground = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 860, height: 650)
+        window.minSize = NSSize(width: 900, height: 690)
         self.init(window: window)
         window.contentView = buildContentView()
     }
 
     private func buildContentView() -> NSView {
-        let root = NSView()
-        root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        let root: NSView
+        let layoutRoot = NSView()
+        layoutRoot.translatesAutoresizingMaskIntoConstraints = false
+        if #available(macOS 26.0, *) {
+            layoutRoot.wantsLayer = true
+            layoutRoot.layer?.backgroundColor = NSColor.windowBackgroundColor
+                .withAlphaComponent(0.14)
+                .cgColor
+            let glass = NSGlassEffectView()
+            glass.contentView = layoutRoot
+            glass.cornerRadius = 0
+            glass.style = .clear
+            glass.tintColor = nil
+            NSLayoutConstraint.activate([
+                layoutRoot.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
+                layoutRoot.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+                layoutRoot.topAnchor.constraint(equalTo: glass.topAnchor),
+                layoutRoot.bottomAnchor.constraint(equalTo: glass.bottomAnchor)
+            ])
+            root = glass
+        } else {
+            let material = NSVisualEffectView()
+            material.material = .underWindowBackground
+            material.blendingMode = .behindWindow
+            material.state = .active
+            material.addSubview(layoutRoot)
+            NSLayoutConstraint.activate([
+                layoutRoot.leadingAnchor.constraint(equalTo: material.leadingAnchor),
+                layoutRoot.trailingAnchor.constraint(equalTo: material.trailingAnchor),
+                layoutRoot.topAnchor.constraint(equalTo: material.topAnchor),
+                layoutRoot.bottomAnchor.constraint(equalTo: material.bottomAnchor)
+            ])
+            root = material
+        }
 
         let header = buildHeader()
         let grid = buildModuleGrid()
@@ -43,23 +80,23 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         [header, grid, footer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            root.addSubview($0)
+            layoutRoot.addSubview($0)
         }
 
         NSLayoutConstraint.activate([
-            header.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
-            header.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            header.topAnchor.constraint(equalTo: root.topAnchor, constant: 20),
+            header.leadingAnchor.constraint(equalTo: layoutRoot.leadingAnchor, constant: 28),
+            header.trailingAnchor.constraint(equalTo: layoutRoot.trailingAnchor, constant: -28),
+            header.topAnchor.constraint(equalTo: layoutRoot.topAnchor, constant: 48),
 
-            grid.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
-            grid.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            grid.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 16),
-            grid.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -16),
+            grid.leadingAnchor.constraint(equalTo: layoutRoot.leadingAnchor, constant: 28),
+            grid.trailingAnchor.constraint(equalTo: layoutRoot.trailingAnchor, constant: -28),
+            grid.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 18),
+            grid.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -14),
 
-            footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
-            footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -18),
-            footer.heightAnchor.constraint(equalToConstant: 34)
+            footer.leadingAnchor.constraint(equalTo: layoutRoot.leadingAnchor, constant: 28),
+            footer.trailingAnchor.constraint(equalTo: layoutRoot.trailingAnchor, constant: -28),
+            footer.bottomAnchor.constraint(equalTo: layoutRoot.bottomAnchor, constant: -20),
+            footer.heightAnchor.constraint(equalToConstant: 46)
         ])
 
         return root
@@ -69,20 +106,35 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let stack = NSStackView()
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = 14
+        stack.spacing = 12
 
-        let title = NSTextField(labelWithString: "Finder 菜单默认行为")
+        let icon = NSImageView(image: NSApp.applicationIconImage)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 42),
+            icon.heightAnchor.constraint(equalToConstant: 42)
+        ])
+
+        let labels = NSStackView()
+        labels.orientation = .vertical
+        labels.alignment = .leading
+        labels.spacing = 2
+
+        let title = NSTextField(labelWithString: "FinderToolkit")
         title.font = .systemFont(ofSize: 24, weight: .semibold)
 
-        let subtitle = NSTextField(labelWithString: "保存后 Finder 扩展下次打开菜单时读取同一份原生设置文件。")
+        let subtitle = NSTextField(labelWithString: "Finder 菜单与扩展设置")
         subtitle.font = .systemFont(ofSize: 13)
         subtitle.textColor = .secondaryLabelColor
+        labels.addArrangedSubview(title)
+        labels.addArrangedSubview(subtitle)
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        stack.addArrangedSubview(title)
-        stack.addArrangedSubview(subtitle)
+        stack.addArrangedSubview(icon)
+        stack.addArrangedSubview(labels)
         stack.addArrangedSubview(spacer)
         return stack
     }
@@ -99,16 +151,33 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         for index in 0..<2 {
             grid.column(at: index).xPlacement = .fill
-            grid.column(at: index).width = 408
+            grid.column(at: index).width = 425
         }
-        grid.row(at: 0).height = 220
-        grid.row(at: 1).height = 300
+        grid.row(at: 0).height = 226
+        grid.row(at: 1).height = 306
 
+        if #available(macOS 26.0, *) {
+            let container = NSGlassEffectContainerView()
+            container.contentView = grid
+            container.spacing = 0
+            grid.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                grid.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                grid.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                grid.topAnchor.constraint(equalTo: container.topAnchor),
+                grid.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            ])
+            return container
+        }
         return grid
     }
 
     private func buildGeneralModule() -> NSView {
-        let stack = moduleStack(title: "终端与开发工具", subtitle: "勾选的开发工具会显示在 Finder 菜单中。")
+        let stack = moduleStack(
+            iconName: "terminal",
+            title: "终端与开发工具",
+            subtitle: "勾选的应用会出现在 Finder 菜单中。"
+        )
 
         let terminalRow = formRow(label: "打开终端")
         terminalPopup = NSPopUpButton()
@@ -151,7 +220,11 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     private func buildHashModule() -> NSView {
-        let stack = moduleStack(title: "哈希算法", subtitle: "只在菜单结果中输出勾选的算法。")
+        let stack = moduleStack(
+            iconName: "number",
+            title: "哈希算法",
+            subtitle: "结果窗口只输出勾选的算法。"
+        )
         let enabled = Set(pendingHashAlgorithms)
         hashCheckboxes = Settings.allHashAlgorithms.enumerated().map { index, algorithm in
             let checkbox = NSButton(checkboxWithTitle: algorithm, target: self, action: #selector(hashChanged(_:)))
@@ -176,7 +249,11 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     private func buildFileTypesModule() -> NSView {
-        let stack = moduleStack(title: "新建文件类型", subtitle: "列表顺序就是 Finder 子菜单顺序。")
+        let stack = moduleStack(
+            iconName: "doc.badge.plus",
+            title: "新建文件类型",
+            subtitle: "列表顺序就是 Finder 子菜单顺序。"
+        )
 
         fileTypeTable = NSTableView()
         fileTypeTable.headerView = nil
@@ -184,7 +261,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         fileTypeTable.dataSource = self
         fileTypeTable.delegate = self
         fileTypeTable.allowsEmptySelection = true
-        fileTypeTable.usesAlternatingRowBackgroundColors = true
+        fileTypeTable.usesAlternatingRowBackgroundColors = false
+        fileTypeTable.gridStyleMask = []
+        fileTypeTable.intercellSpacing = NSSize(width: 0, height: 0)
+        fileTypeTable.backgroundColor = .clear
 
         let column = NSTableColumn(identifier: Column.fileType)
         column.title = "扩展名"
@@ -194,9 +274,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let tableScroll = NSScrollView()
         tableScroll.documentView = fileTypeTable
         tableScroll.hasVerticalScroller = true
-        tableScroll.borderType = .bezelBorder
+        tableScroll.borderType = .noBorder
+        tableScroll.drawsBackground = false
         tableScroll.translatesAutoresizingMaskIntoConstraints = false
-        tableScroll.heightAnchor.constraint(equalToConstant: 138).isActive = true
+        tableScroll.heightAnchor.constraint(equalToConstant: 142).isActive = true
         stack.addArrangedSubview(tableScroll)
 
         let inputRow = NSStackView()
@@ -213,7 +294,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         inputRow.addArrangedSubview(fileTypeInput)
 
         let addButton = NSButton(title: "添加", target: self, action: #selector(addFileTypes))
-        addButton.bezelStyle = .rounded
+        configureActionButton(addButton, symbolName: "plus")
         inputRow.addArrangedSubview(addButton)
         stack.addArrangedSubview(inputRow)
 
@@ -223,9 +304,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         buttonRow.spacing = 8
 
         let removeButton = NSButton(title: "删除选中", target: self, action: #selector(removeSelectedFileType))
-        removeButton.bezelStyle = .rounded
+        configureActionButton(removeButton, symbolName: "minus")
         let defaultButton = NSButton(title: "恢复类型默认", target: self, action: #selector(resetFileTypes))
-        defaultButton.bezelStyle = .rounded
+        configureActionButton(defaultButton, symbolName: "arrow.counterclockwise")
 
         buttonRow.addArrangedSubview(removeButton)
         buttonRow.addArrangedSubview(defaultButton)
@@ -235,7 +316,11 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     private func buildExtensionModule() -> NSView {
-        let stack = moduleStack(title: "扩展与同步", subtitle: "用于确认扩展和共享设置文件是否存在。")
+        let stack = moduleStack(
+            iconName: "puzzlepiece.extension",
+            title: "扩展与同步",
+            subtitle: "检查 Finder 扩展与共享设置状态。"
+        )
 
         let extPath = Bundle.main.bundleURL
             .appendingPathComponent("Contents/PlugIns/FinderToolkitExtension.appex")
@@ -264,7 +349,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         stack.addArrangedSubview(pathLabel)
 
         let openSettingsButton = NSButton(title: "打开系统扩展设置", target: self, action: #selector(openSystemSettings))
-        openSettingsButton.bezelStyle = .rounded
+        configureActionButton(openSettingsButton, symbolName: "gearshape")
         stack.addArrangedSubview(openSettingsButton)
 
         return moduleBox(stack)
@@ -284,9 +369,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let resetButton = NSButton(title: "全部恢复默认", target: self, action: #selector(resetSettings))
-        resetButton.bezelStyle = .rounded
+        configureActionButton(resetButton, symbolName: "arrow.counterclockwise")
         let saveButton = NSButton(title: "保存设置", target: self, action: #selector(saveSettings))
-        saveButton.bezelStyle = .rounded
+        configureActionButton(saveButton, symbolName: "checkmark", emphasized: true)
         saveButton.keyEquivalent = "\r"
         saveButton.font = .systemFont(ofSize: 13, weight: .semibold)
 
@@ -297,12 +382,32 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         return stack
     }
 
-    private func moduleStack(title: String, subtitle: String) -> NSStackView {
+    private func moduleStack(iconName: String, title: String, subtitle: String) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        stack.spacing = 11
+        stack.edgeInsets = NSEdgeInsets(top: 17, left: 17, bottom: 17, right: 17)
+
+        let header = NSStackView()
+        header.orientation = .horizontal
+        header.alignment = .centerY
+        header.spacing = 9
+
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: iconName, accessibilityDescription: title)
+        icon.contentTintColor = .secondaryLabelColor
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 20),
+            icon.heightAnchor.constraint(equalToConstant: 20)
+        ])
+
+        let labels = NSStackView()
+        labels.orientation = .vertical
+        labels.alignment = .leading
+        labels.spacing = 2
 
         let titleLabel = NSTextField(labelWithString: title)
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
@@ -310,20 +415,41 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         subtitleLabel.font = .systemFont(ofSize: 12)
         subtitleLabel.textColor = .secondaryLabelColor
 
-        stack.addArrangedSubview(titleLabel)
-        stack.addArrangedSubview(subtitleLabel)
+        labels.addArrangedSubview(titleLabel)
+        labels.addArrangedSubview(subtitleLabel)
+        header.addArrangedSubview(icon)
+        header.addArrangedSubview(labels)
+        stack.addArrangedSubview(header)
         return stack
     }
 
     private func moduleBox(_ content: NSStackView) -> NSView {
-        let box = NSBox()
-        box.boxType = .custom
-        box.borderType = .lineBorder
-        box.borderWidth = 1
-        box.borderColor = NSColor.separatorColor.withAlphaComponent(0.85)
-        box.cornerRadius = 8
-        box.fillColor = NSColor.controlBackgroundColor
-        box.addSubview(content)
+        let box: NSView
+        if #available(macOS 26.0, *) {
+            content.wantsLayer = true
+            content.layer?.backgroundColor = NSColor.windowBackgroundColor
+                .withAlphaComponent(0.70)
+                .cgColor
+            content.layer?.cornerRadius = 8
+            content.layer?.masksToBounds = true
+            let glass = NSGlassEffectView()
+            glass.contentView = content
+            glass.cornerRadius = 8
+            glass.style = .clear
+            glass.tintColor = nil
+            box = glass
+        } else {
+            let material = NSVisualEffectView()
+            material.material = .contentBackground
+            material.blendingMode = .withinWindow
+            material.state = .active
+            material.wantsLayer = true
+            material.layer?.cornerRadius = 8
+            material.layer?.borderWidth = 1
+            material.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+            material.addSubview(content)
+            box = material
+        }
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: box.leadingAnchor),
@@ -332,6 +458,19 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             content.bottomAnchor.constraint(equalTo: box.bottomAnchor)
         ])
         return box
+    }
+
+    private func configureActionButton(_ button: NSButton, symbolName: String, emphasized: Bool = false) {
+        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: button.title)
+        button.imagePosition = .imageLeading
+        if #available(macOS 26.0, *) {
+            button.bezelStyle = .glass
+            if emphasized {
+                button.bezelColor = .controlAccentColor
+            }
+        } else {
+            button.bezelStyle = .rounded
+        }
     }
 
     private func formRow(label: String) -> NSStackView {
@@ -459,7 +598,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             ?? NSTextField()
         textField.identifier = identifier
         textField.isBordered = false
+        textField.drawsBackground = false
         textField.backgroundColor = .clear
+        textField.focusRingType = .none
+        textField.textColor = .labelColor
         textField.isEditable = true
         textField.delegate = self
         textField.stringValue = pendingFileTypes[row]
