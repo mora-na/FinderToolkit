@@ -10,12 +10,14 @@ BUILD_DIR="$ROOT_DIR/build/Release"
 APP_PATH="$BUILD_DIR/Build/Products/Release/FinderToolkit.app"
 STAGE_DIR="$ROOT_DIR/dist/FinderToolkit-$VERSION"
 DMG_PATH="$ROOT_DIR/dist/FinderToolkit-$VERSION.dmg"
+LATEST_DMG_PATH="$ROOT_DIR/dist/FinderToolkit-latest.dmg"
 
-if [[ -e "$BUILD_DIR" || -e "$STAGE_DIR" || -e "$DMG_PATH" ]]; then
+if [[ -e "$BUILD_DIR" || -e "$STAGE_DIR" || -e "$DMG_PATH" || -e "$LATEST_DMG_PATH" ]]; then
     echo "Release output already exists. Move it to Trash before rebuilding:" >&2
     echo "  $BUILD_DIR" >&2
     echo "  $STAGE_DIR" >&2
     echo "  $DMG_PATH" >&2
+    echo "  $LATEST_DMG_PATH" >&2
     exit 1
 fi
 
@@ -68,9 +70,14 @@ hdiutil create \
     -format UDZO \
     "$DMG_PATH"
 
+hdiutil verify "$DMG_PATH"
+
 codesign --force --sign - --timestamp=none "$DMG_PATH"
 codesign --verify --verbose=2 "$DMG_PATH"
-hdiutil verify "$DMG_PATH"
+
+ditto "$DMG_PATH" "$LATEST_DMG_PATH"
+codesign --verify --verbose=2 "$LATEST_DMG_PATH"
 
 echo "FinderToolkit $VERSION ($BUILD_NUMBER)"
 shasum -a 256 "$DMG_PATH"
+shasum -a 256 "$LATEST_DMG_PATH"
