@@ -11,7 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let largeHashThreshold: Int64 = 1024 * 1024 * 1024
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         setupMainMenu()
 
         NSAppleEventManager.shared().setEventHandler(
@@ -57,7 +57,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(
         _ sender: NSApplication
     ) -> Bool {
-        return !handledURL
+        return false
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -73,7 +73,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 关闭可能已显示的设置窗口
         settingsWindowController?.window?.close()
         settingsWindowController = nil
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         for url in urls {
             handleURL(url)
         }
@@ -90,7 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.settingsWindowController?.window?.close()
             self?.settingsWindowController = nil
         }
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         guard let urlString = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
               let url = URL(string: urlString) else {
             showCopyableDialog(title: "FinderToolkit", message: "无法解析请求。")

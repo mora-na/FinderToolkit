@@ -57,6 +57,26 @@ struct DeveloperTool: Hashable {
     }
 }
 
+struct TerminalTool: Hashable {
+    let identifier: String
+    let displayName: String
+    let menuTitle: String
+    let bundleIdentifiers: [String]
+
+    static let all: [TerminalTool] = [
+        TerminalTool(identifier: "terminal", displayName: "Terminal", menuTitle: "在此打开Terminal", bundleIdentifiers: ["com.apple.Terminal"]),
+        TerminalTool(identifier: "iterm2", displayName: "iTerm2", menuTitle: "在此打开iTerm2", bundleIdentifiers: ["com.googlecode.iterm2"]),
+        TerminalTool(identifier: "ghostty", displayName: "Ghostty", menuTitle: "在此打开Ghostty", bundleIdentifiers: ["com.mitchellh.ghostty"]),
+        TerminalTool(identifier: "warp", displayName: "Warp", menuTitle: "在此打开Warp", bundleIdentifiers: ["dev.warp.Warp-Stable"]),
+        TerminalTool(identifier: "wezterm", displayName: "WezTerm", menuTitle: "在此打开WezTerm", bundleIdentifiers: ["org.wezfurlong.wezterm"]),
+        TerminalTool(identifier: "alacritty", displayName: "Alacritty", menuTitle: "在此打开Alacritty", bundleIdentifiers: ["org.alacritty"])
+    ]
+
+    static func tool(withIdentifier identifier: String) -> TerminalTool? {
+        all.first { $0.identifier == identifier }
+    }
+}
+
 final class HashCancellationToken {
     private let lock = NSLock()
     private var cancelled = false
@@ -82,6 +102,7 @@ final class HashCancellationToken {
 
 struct ToolkitSettingsPayload: Codable {
     var terminalApp: String
+    var terminalApps: [String]
     var newFileTypes: [String]
     var hashAlgorithms: [String]
     var developerTools: [String]
@@ -91,9 +112,11 @@ struct ToolkitSettingsPayload: Codable {
     static let allHashAlgorithms = ["CRC32", "CRC32C", "MD5", "SHA1", "SHA224", "SHA256", "SHA384", "SHA512", "SM3"]
     static let defaultHashAlgorithms = ["MD5", "SHA1", "SHA256"]
     static let defaultDeveloperTools = ["vscode"]
+    static let defaultTerminalApps = ["terminal"]
 
     private enum CodingKeys: String, CodingKey {
         case terminalApp
+        case terminalApps
         case newFileTypes
         case hashAlgorithms
         case developerTools
@@ -102,12 +125,14 @@ struct ToolkitSettingsPayload: Codable {
 
     init(
         terminalApp: String,
+        terminalApps: [String] = ToolkitSettingsPayload.defaultTerminalApps,
         newFileTypes: [String],
         hashAlgorithms: [String],
         developerTools: [String],
         updatedAt: Date
     ) {
         self.terminalApp = terminalApp
+        self.terminalApps = terminalApps
         self.newFileTypes = newFileTypes
         self.hashAlgorithms = hashAlgorithms
         self.developerTools = developerTools
@@ -117,6 +142,8 @@ struct ToolkitSettingsPayload: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         terminalApp = try container.decodeIfPresent(String.self, forKey: .terminalApp) ?? "terminal"
+        terminalApps = try container.decodeIfPresent([String].self, forKey: .terminalApps)
+            ?? [terminalApp]
         newFileTypes = try container.decodeIfPresent([String].self, forKey: .newFileTypes)
             ?? Self.defaultNewFileTypes
         hashAlgorithms = try container.decodeIfPresent([String].self, forKey: .hashAlgorithms)
@@ -130,6 +157,7 @@ struct ToolkitSettingsPayload: Codable {
     static var defaults: ToolkitSettingsPayload {
         ToolkitSettingsPayload(
             terminalApp: "terminal",
+            terminalApps: defaultTerminalApps,
             newFileTypes: defaultNewFileTypes,
             hashAlgorithms: defaultHashAlgorithms,
             developerTools: defaultDeveloperTools,
@@ -139,7 +167,8 @@ struct ToolkitSettingsPayload: Codable {
 
     var normalized: ToolkitSettingsPayload {
         ToolkitSettingsPayload(
-            terminalApp: terminalApp == "iterm2" ? "iterm2" : "terminal",
+            terminalApp: Self.normalizedTerminalApps(terminalApps).first ?? "terminal",
+            terminalApps: Self.normalizedTerminalApps(terminalApps),
             newFileTypes: Self.normalizedFileTypes(newFileTypes),
             hashAlgorithms: Self.normalizedHashAlgorithms(hashAlgorithms),
             developerTools: Self.normalizedDeveloperTools(developerTools),
@@ -185,6 +214,13 @@ struct ToolkitSettingsPayload: Codable {
     static func normalizedDeveloperTools(_ values: [String]) -> [String] {
         let enabled = Set(values)
         return DeveloperTool.all
+            .map(\.identifier)
+            .filter { enabled.contains($0) }
+    }
+
+    static func normalizedTerminalApps(_ values: [String]) -> [String] {
+        let enabled = Set(values)
+        return TerminalTool.all
             .map(\.identifier)
             .filter { enabled.contains($0) }
     }

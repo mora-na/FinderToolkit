@@ -6,21 +6,21 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         static let fileType = NSUserInterfaceItemIdentifier("fileType")
     }
 
-    private var terminalPopup: NSPopUpButton!
+    private var terminalCheckboxes: [NSButton] = []
     private var fileTypeTable: NSTableView!
     private var fileTypeInput: NSTextField!
     private var statusLabel: NSTextField!
     private var hashCheckboxes: [NSButton] = []
     private var developerToolCheckboxes: [NSButton] = []
 
-    private var pendingTerminalApp = Settings.terminalApp
+    private var pendingTerminalTools = Settings.enabledTerminalTools
     private var pendingFileTypes = Settings.newFileTypes
     private var pendingHashAlgorithms = Settings.enabledHashAlgorithms
     private var pendingDeveloperTools = Settings.enabledDeveloperTools
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 920, height: 720),
+            contentRect: NSRect(x: 0, y: 0, width: 860, height: 770),
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -33,7 +33,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         window.backgroundColor = .clear
         window.isOpaque = false
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 900, height: 690)
+        window.minSize = NSSize(width: 860, height: 770)
         self.init(window: window)
         window.contentView = buildContentView()
     }
@@ -151,9 +151,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         for index in 0..<2 {
             grid.column(at: index).xPlacement = .fill
-            grid.column(at: index).width = 425
+            grid.column(at: index).width = 390
         }
-        grid.row(at: 0).height = 226
+        grid.row(at: 0).height = 320
         grid.row(at: 1).height = 306
 
         if #available(macOS 26.0, *) {
@@ -179,19 +179,22 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             subtitle: "勾选的应用会出现在 Finder 菜单中。"
         )
 
-        let terminalRow = formRow(label: "打开终端")
-        terminalPopup = NSPopUpButton()
-        terminalPopup.addItem(withTitle: Settings.TerminalApp.terminal.displayName)
-        terminalPopup.item(at: 0)?.representedObject = Settings.TerminalApp.terminal
-        terminalPopup.addItem(withTitle: Settings.TerminalApp.iterm2.displayName)
-        terminalPopup.item(at: 1)?.representedObject = Settings.TerminalApp.iterm2
-        terminalPopup.selectItem(at: pendingTerminalApp == .iterm2 ? 1 : 0)
-        terminalPopup.target = self
-        terminalPopup.action = #selector(terminalChanged(_:))
-        terminalPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 210).isActive = true
-        terminalRow.addArrangedSubview(terminalPopup)
+        stack.addArrangedSubview(toolSectionTitle("终端工具"))
+        let enabledTerminals = Set(pendingTerminalTools)
+        terminalCheckboxes = Settings.allTerminalTools.enumerated().map { index, tool in
+            let checkbox = NSButton(checkboxWithTitle: tool.displayName, target: self, action: #selector(terminalChanged(_:)))
+            checkbox.tag = index
+            checkbox.state = enabledTerminals.contains(tool.identifier) ? .on : .off
+            checkbox.widthAnchor.constraint(equalToConstant: 112).isActive = true
+            return checkbox
+        }
 
-        stack.addArrangedSubview(terminalRow)
+        stack.addArrangedSubview(checkboxGrid(terminalCheckboxes))
+
+        let spacer = NSView()
+        spacer.heightAnchor.constraint(equalToConstant: 8).isActive = true
+        stack.addArrangedSubview(spacer)
+        stack.addArrangedSubview(toolSectionTitle("开发工具"))
 
         let enabledTools = Set(pendingDeveloperTools)
         developerToolCheckboxes = Settings.allDeveloperTools.enumerated().map { index, tool in
@@ -202,20 +205,11 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             )
             checkbox.tag = index
             checkbox.state = enabledTools.contains(tool.identifier) ? .on : .off
-            checkbox.widthAnchor.constraint(equalToConstant: 116).isActive = true
+            checkbox.widthAnchor.constraint(equalToConstant: 112).isActive = true
             return checkbox
         }
 
-        for rowStart in stride(from: 0, to: developerToolCheckboxes.count, by: 3) {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = 8
-            for checkbox in developerToolCheckboxes[rowStart..<min(rowStart + 3, developerToolCheckboxes.count)] {
-                row.addArrangedSubview(checkbox)
-            }
-            stack.addArrangedSubview(row)
-        }
+        stack.addArrangedSubview(checkboxGrid(developerToolCheckboxes))
         return moduleBox(stack)
     }
 
@@ -246,6 +240,37 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         }
 
         return moduleBox(stack)
+    }
+
+    private func toolSectionTitle(_ title: String) -> NSTextField {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.textColor = .secondaryLabelColor
+        return label
+    }
+
+    private func checkboxGrid(_ checkboxes: [NSButton], columns: Int = 3) -> NSStackView {
+        let grid = NSStackView()
+        grid.orientation = .vertical
+        grid.alignment = .leading
+        grid.spacing = 8
+        grid.setContentHuggingPriority(.required, for: .vertical)
+        grid.setContentCompressionResistancePriority(.required, for: .vertical)
+
+        for rowStart in stride(from: 0, to: checkboxes.count, by: columns) {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+            row.setContentHuggingPriority(.required, for: .vertical)
+            row.setContentCompressionResistancePriority(.required, for: .vertical)
+            row.heightAnchor.constraint(equalToConstant: 24).isActive = true
+            for checkbox in checkboxes[rowStart..<min(rowStart + columns, checkboxes.count)] {
+                row.addArrangedSubview(checkbox)
+            }
+            grid.addArrangedSubview(row)
+        }
+        return grid
     }
 
     private func buildFileTypesModule() -> NSView {
@@ -446,7 +471,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             material.wantsLayer = true
             material.layer?.cornerRadius = 8
             material.layer?.borderWidth = 1
-            material.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+            material.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.60).cgColor
             material.addSubview(content)
             box = material
         }
@@ -466,7 +491,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         if #available(macOS 26.0, *) {
             button.bezelStyle = .glass
             if emphasized {
-                button.bezelColor = .controlAccentColor
+                button.bezelColor = NSColor(calibratedRed: 0.16, green: 0.62, blue: 0.35, alpha: 1)
             }
         } else {
             button.bezelStyle = .rounded
@@ -634,10 +659,17 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         fileTypeTable.reloadData()
     }
 
-    @objc private func terminalChanged(_ sender: NSPopUpButton) {
-        if let app = sender.selectedItem?.representedObject as? Settings.TerminalApp {
-            pendingTerminalApp = app
+    @objc private func terminalChanged(_ sender: NSButton) {
+        guard Settings.allTerminalTools.indices.contains(sender.tag) else { return }
+        let identifier = Settings.allTerminalTools[sender.tag].identifier
+        if sender.state == .on {
+            if !pendingTerminalTools.contains(identifier) {
+                pendingTerminalTools.append(identifier)
+            }
+        } else {
+            pendingTerminalTools.removeAll { $0 == identifier }
         }
+        pendingTerminalTools = Settings.normalizedTerminalTools(pendingTerminalTools)
     }
 
     @objc private func hashChanged(_ sender: NSButton) {
@@ -694,11 +726,15 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     @objc private func resetSettings() {
-        pendingTerminalApp = .terminal
+        pendingTerminalTools = Settings.defaultTerminalTools
         pendingFileTypes = Settings.defaultNewFileTypes
         pendingHashAlgorithms = Settings.defaultHashAlgorithms
         pendingDeveloperTools = Settings.defaultDeveloperTools
-        terminalPopup.selectItem(at: 0)
+        for (index, checkbox) in terminalCheckboxes.enumerated() {
+            checkbox.state = Settings.defaultTerminalTools.contains(
+                Settings.allTerminalTools[index].identifier
+            ) ? .on : .off
+        }
         for (index, checkbox) in hashCheckboxes.enumerated() {
             checkbox.state = Settings.defaultHashAlgorithms.contains(
                 Settings.allHashAlgorithms[index]
@@ -718,8 +754,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         pendingFileTypes = Settings.normalizedFileTypes(pendingFileTypes)
         pendingHashAlgorithms = Settings.normalizedHashAlgorithms(pendingHashAlgorithms)
         pendingDeveloperTools = Settings.normalizedDeveloperTools(pendingDeveloperTools)
+        pendingTerminalTools = Settings.normalizedTerminalTools(pendingTerminalTools)
         let saved = Settings.save(
-            terminalApp: pendingTerminalApp,
+            enabledTerminalTools: pendingTerminalTools,
             newFileTypes: pendingFileTypes,
             enabledHashAlgorithms: pendingHashAlgorithms,
             enabledDeveloperTools: pendingDeveloperTools

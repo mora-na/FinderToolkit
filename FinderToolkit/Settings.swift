@@ -8,6 +8,7 @@ enum Settings {
 
     private enum Key {
         static let terminalApp = "terminal_app"
+        static let terminalApps = "terminal_apps"
         static let newFileTypes = "new_file_types"
         static let hashAlgorithms = "hash_algorithms"
         static let developerTools = "developer_tools"
@@ -21,46 +22,18 @@ enum Settings {
 
     // MARK: - Terminal
 
-    enum TerminalApp: String {
-        case terminal = "terminal"
-        case iterm2 = "iterm2"
+    static let allTerminalTools = TerminalTool.all
+    static let defaultTerminalTools = ToolkitSettingsPayload.defaultTerminalApps
 
-        var displayName: String {
-            switch self {
-            case .terminal: return "系统终端 (Terminal.app)"
-            case .iterm2: return "iTerm2"
-            }
-        }
-    }
-
-    static var terminalApp: TerminalApp {
-        get {
-            let stored = ToolkitSettingsStore.load()
-            guard let value = TerminalApp(rawValue: stored.terminalApp) else {
-                return .terminal
-            }
-            return value
-        }
+    static var enabledTerminalTools: [String] {
+        get { ToolkitSettingsStore.load().terminalApps }
         set {
             save(
-                terminalApp: newValue,
+                enabledTerminalTools: newValue,
                 newFileTypes: newFileTypes,
                 enabledHashAlgorithms: enabledHashAlgorithms,
                 enabledDeveloperTools: enabledDeveloperTools
             )
-        }
-    }
-
-    static var fallbackTerminalApp: TerminalApp {
-        get {
-            guard let raw = string(forKey: Key.terminalApp),
-                  let value = TerminalApp(rawValue: raw) else {
-                return .terminal
-            }
-            return value
-        }
-        set {
-            set(newValue.rawValue, forKey: Key.terminalApp)
         }
     }
 
@@ -74,7 +47,7 @@ enum Settings {
         }
         set {
             save(
-                terminalApp: terminalApp,
+                enabledTerminalTools: enabledTerminalTools,
                 newFileTypes: newValue,
                 enabledHashAlgorithms: enabledHashAlgorithms,
                 enabledDeveloperTools: enabledDeveloperTools
@@ -93,7 +66,7 @@ enum Settings {
         }
         set {
             save(
-                terminalApp: terminalApp,
+                enabledTerminalTools: enabledTerminalTools,
                 newFileTypes: newFileTypes,
                 enabledHashAlgorithms: newValue,
                 enabledDeveloperTools: enabledDeveloperTools
@@ -112,7 +85,7 @@ enum Settings {
         }
         set {
             save(
-                terminalApp: terminalApp,
+                enabledTerminalTools: enabledTerminalTools,
                 newFileTypes: newFileTypes,
                 enabledHashAlgorithms: enabledHashAlgorithms,
                 enabledDeveloperTools: newValue
@@ -127,13 +100,14 @@ enum Settings {
 
     @discardableResult
     static func save(
-        terminalApp: TerminalApp,
+        enabledTerminalTools: [String],
         newFileTypes: [String],
         enabledHashAlgorithms: [String],
         enabledDeveloperTools: [String]
     ) -> Bool {
         let payload = ToolkitSettingsPayload(
-            terminalApp: terminalApp.rawValue,
+            terminalApp: normalizedTerminalTools(enabledTerminalTools).first ?? "terminal",
+            terminalApps: normalizedTerminalTools(enabledTerminalTools),
             newFileTypes: normalizedFileTypes(newFileTypes),
             hashAlgorithms: normalizedHashAlgorithms(enabledHashAlgorithms),
             developerTools: normalizedDeveloperTools(enabledDeveloperTools),
@@ -148,7 +122,8 @@ enum Settings {
             sharedFileSaved = false
         }
 
-        set(terminalApp.rawValue, forKey: Key.terminalApp)
+        set(payload.terminalApp, forKey: Key.terminalApp)
+        set(payload.terminalApps, forKey: Key.terminalApps)
         set(payload.newFileTypes, forKey: Key.newFileTypes)
         set(payload.hashAlgorithms, forKey: Key.hashAlgorithms)
         set(payload.developerTools, forKey: Key.developerTools)
@@ -161,7 +136,7 @@ enum Settings {
     // MARK: - Helpers
 
     static func resetAll() {
-        [Key.terminalApp, Key.newFileTypes, Key.hashAlgorithms, Key.developerTools, Key.settingsVersion, Key.updatedAt].forEach {
+        [Key.terminalApp, Key.terminalApps, Key.newFileTypes, Key.hashAlgorithms, Key.developerTools, Key.settingsVersion, Key.updatedAt].forEach {
             suiteDefaults?.removeObject(forKey: $0)
             standardDefaults.removeObject(forKey: $0)
         }
@@ -182,6 +157,10 @@ enum Settings {
 
     static func normalizedDeveloperTools(_ values: [String]) -> [String] {
         ToolkitSettingsPayload.normalizedDeveloperTools(values)
+    }
+
+    static func normalizedTerminalTools(_ values: [String]) -> [String] {
+        ToolkitSettingsPayload.normalizedTerminalApps(values)
     }
 
     private static func string(forKey key: String) -> String? {

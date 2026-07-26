@@ -6,13 +6,14 @@ enum ExtensionSettings {
 
     private enum Key {
         static let terminalApp = "terminal_app"
+        static let terminalApps = "terminal_apps"
         static let newFileTypes = "new_file_types"
         static let hashAlgorithms = "hash_algorithms"
         static let developerTools = "developer_tools"
     }
 
-    static var useITerm2: Bool {
-        settings.terminalApp == "iterm2"
+    static var enabledTerminalTools: [TerminalTool] {
+        settings.terminalApps.compactMap(TerminalTool.tool(withIdentifier:))
     }
 
     static let defaultNewFileTypes = ["txt", "docx", "xlsx", "pptx", "md", "csv"]
@@ -42,6 +43,8 @@ enum ExtensionSettings {
 
         return ToolkitSettingsPayload(
             terminalApp: suiteDefaults?.string(forKey: Key.terminalApp) ?? "terminal",
+            terminalApps: suiteDefaults?.stringArray(forKey: Key.terminalApps)
+                ?? [suiteDefaults?.string(forKey: Key.terminalApp) ?? "terminal"],
             newFileTypes: suiteDefaults?.stringArray(forKey: Key.newFileTypes) ?? defaultNewFileTypes,
             hashAlgorithms: suiteDefaults?.stringArray(forKey: Key.hashAlgorithms) ?? defaultHashAlgorithms,
             developerTools: suiteDefaults?.stringArray(forKey: Key.developerTools)
