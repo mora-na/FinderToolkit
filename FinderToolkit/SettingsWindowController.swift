@@ -1,9 +1,43 @@
 import Cocoa
 
-final class SettingsWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
 
     private enum Column {
         static let fileType = NSUserInterfaceItemIdentifier("fileType")
+    }
+
+    private final class StatusRowView: NSStackView {
+        private let dot = NSView()
+        private let label: NSTextField
+
+        init(title: String, color: NSColor) {
+            label = NSTextField(labelWithString: title)
+            super.init(frame: .zero)
+
+            orientation = .horizontal
+            alignment = .centerY
+            spacing = 8
+
+            dot.wantsLayer = true
+            dot.translatesAutoresizingMaskIntoConstraints = false
+            dot.widthAnchor.constraint(equalToConstant: 9).isActive = true
+            dot.heightAnchor.constraint(equalToConstant: 9).isActive = true
+            dot.layer?.cornerRadius = 4.5
+
+            label.font = .systemFont(ofSize: 13)
+            addArrangedSubview(dot)
+            addArrangedSubview(label)
+            update(title: title, color: color)
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("StatusRowView does not support NSCoder")
+        }
+
+        func update(title: String, color: NSColor) {
+            label.stringValue = title
+            dot.layer?.backgroundColor = color.cgColor
+        }
     }
 
     private var terminalCheckboxes: [NSButton] = []
@@ -12,6 +46,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private var statusLabel: NSTextField!
     private var hashCheckboxes: [NSButton] = []
     private var developerToolCheckboxes: [NSButton] = []
+    private var extensionInstalledStatus: StatusRowView!
+    private var extensionAuthorizationStatus: StatusRowView!
+    private var settingsFileStatus: StatusRowView!
+    private var statusRefreshTimer: Timer?
+    private var statusRefreshInFlight = false
+    private var statusRefreshSequence = 0
 
     private var pendingTerminalTools = Settings.enabledTerminalTools
     private var pendingFileTypes = Settings.newFileTypes
@@ -20,59 +60,47 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 860, height: 770),
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 880, height: 740),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "FinderToolkit 设置"
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.titlebarSeparatorStyle = .none
-        window.isMovableByWindowBackground = true
-        window.backgroundColor = .clear
-        window.isOpaque = false
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 860, height: 770)
+        window.minSize = NSSize(width: 860, height: 710)
         self.init(window: window)
         window.contentView = buildContentView()
     }
 
+    deinit {
+        statusLog("settings controller deinit")
+        statusRefreshTimer?.invalidate()
+    }
+
+    override func showWindow(_ sender: Any?) {
+        window?.delegate = self
+        super.showWindow(sender)
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        statusLog(
+            "settings window shown appPath=\(Bundle.main.bundleURL.path) "
+                + "bundleID=\(Bundle.main.bundleIdentifier ?? "unknown") "
+                + "version=\(appVersion) build=\(buildVersion)"
+        )
+        startStatusRefreshTimer()
+        refreshStatuses()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        statusLog("settings window closing; invalidate status timer")
+        statusRefreshTimer?.invalidate()
+        statusRefreshTimer = nil
+    }
+
     private func buildContentView() -> NSView {
-        let root: NSView
-        let layoutRoot = NSView()
-        layoutRoot.translatesAutoresizingMaskIntoConstraints = false
-        if #available(macOS 26.0, *) {
-            layoutRoot.wantsLayer = true
-            layoutRoot.layer?.backgroundColor = NSColor.windowBackgroundColor
-                .withAlphaComponent(0.14)
-                .cgColor
-            let glass = NSGlassEffectView()
-            glass.contentView = layoutRoot
-            glass.cornerRadius = 0
-            glass.style = .clear
-            glass.tintColor = nil
-            NSLayoutConstraint.activate([
-                layoutRoot.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
-                layoutRoot.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
-                layoutRoot.topAnchor.constraint(equalTo: glass.topAnchor),
-                layoutRoot.bottomAnchor.constraint(equalTo: glass.bottomAnchor)
-            ])
-            root = glass
-        } else {
-            let material = NSVisualEffectView()
-            material.material = .underWindowBackground
-            material.blendingMode = .behindWindow
-            material.state = .active
-            material.addSubview(layoutRoot)
-            NSLayoutConstraint.activate([
-                layoutRoot.leadingAnchor.constraint(equalTo: material.leadingAnchor),
-                layoutRoot.trailingAnchor.constraint(equalTo: material.trailingAnchor),
-                layoutRoot.topAnchor.constraint(equalTo: material.topAnchor),
-                layoutRoot.bottomAnchor.constraint(equalTo: material.bottomAnchor)
-            ])
-            root = material
-        }
+        let root = NSView()
+        root.wantsLayer = true
+        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
         let header = buildHeader()
         let grid = buildModuleGrid()
@@ -80,23 +108,23 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         [header, grid, footer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            layoutRoot.addSubview($0)
+            root.addSubview($0)
         }
 
         NSLayoutConstraint.activate([
-            header.leadingAnchor.constraint(equalTo: layoutRoot.leadingAnchor, constant: 28),
-            header.trailingAnchor.constraint(equalTo: layoutRoot.trailingAnchor, constant: -28),
-            header.topAnchor.constraint(equalTo: layoutRoot.topAnchor, constant: 48),
+            header.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
+            header.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            header.topAnchor.constraint(equalTo: root.topAnchor, constant: 20),
 
-            grid.leadingAnchor.constraint(equalTo: layoutRoot.leadingAnchor, constant: 28),
-            grid.trailingAnchor.constraint(equalTo: layoutRoot.trailingAnchor, constant: -28),
-            grid.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 18),
-            grid.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -14),
+            grid.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
+            grid.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            grid.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 16),
+            grid.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -16),
 
-            footer.leadingAnchor.constraint(equalTo: layoutRoot.leadingAnchor, constant: 28),
-            footer.trailingAnchor.constraint(equalTo: layoutRoot.trailingAnchor, constant: -28),
-            footer.bottomAnchor.constraint(equalTo: layoutRoot.bottomAnchor, constant: -20),
-            footer.heightAnchor.constraint(equalToConstant: 46)
+            footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
+            footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -18),
+            footer.heightAnchor.constraint(equalToConstant: 34)
         ])
 
         return root
@@ -106,35 +134,20 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let stack = NSStackView()
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = 12
+        stack.spacing = 14
 
-        let icon = NSImageView(image: NSApp.applicationIconImage)
-        icon.imageScaling = .scaleProportionallyUpOrDown
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            icon.widthAnchor.constraint(equalToConstant: 42),
-            icon.heightAnchor.constraint(equalToConstant: 42)
-        ])
-
-        let labels = NSStackView()
-        labels.orientation = .vertical
-        labels.alignment = .leading
-        labels.spacing = 2
-
-        let title = NSTextField(labelWithString: "FinderToolkit")
+        let title = NSTextField(labelWithString: "Finder 菜单默认行为")
         title.font = .systemFont(ofSize: 24, weight: .semibold)
 
-        let subtitle = NSTextField(labelWithString: "Finder 菜单与扩展设置")
+        let subtitle = NSTextField(labelWithString: "保存后 Finder 扩展下次打开菜单时读取同一份原生设置文件。")
         subtitle.font = .systemFont(ofSize: 13)
         subtitle.textColor = .secondaryLabelColor
-        labels.addArrangedSubview(title)
-        labels.addArrangedSubview(subtitle)
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        stack.addArrangedSubview(icon)
-        stack.addArrangedSubview(labels)
+        stack.addArrangedSubview(title)
+        stack.addArrangedSubview(subtitle)
         stack.addArrangedSubview(spacer)
         return stack
     }
@@ -151,51 +164,46 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         for index in 0..<2 {
             grid.column(at: index).xPlacement = .fill
-            grid.column(at: index).width = 390
+            grid.column(at: index).width = 408
         }
-        grid.row(at: 0).height = 320
-        grid.row(at: 1).height = 306
+        grid.row(at: 0).height = 270
+        grid.row(at: 1).height = 300
 
-        if #available(macOS 26.0, *) {
-            let container = NSGlassEffectContainerView()
-            container.contentView = grid
-            container.spacing = 0
-            grid.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                grid.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                grid.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                grid.topAnchor.constraint(equalTo: container.topAnchor),
-                grid.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-            ])
-            return container
-        }
         return grid
     }
 
     private func buildGeneralModule() -> NSView {
         let stack = moduleStack(
-            iconName: "terminal",
             title: "终端与开发工具",
-            subtitle: "勾选的应用会出现在 Finder 菜单中。"
+            subtitle: "选择的终端和开发工具会显示在 Finder 菜单中。"
         )
 
         stack.addArrangedSubview(toolSectionTitle("终端工具"))
         let enabledTerminals = Set(pendingTerminalTools)
         terminalCheckboxes = Settings.allTerminalTools.enumerated().map { index, tool in
-            let checkbox = NSButton(checkboxWithTitle: tool.displayName, target: self, action: #selector(terminalChanged(_:)))
+            let checkbox = NSButton(
+                checkboxWithTitle: tool.displayName,
+                target: self,
+                action: #selector(terminalChanged(_:))
+            )
             checkbox.tag = index
             checkbox.state = enabledTerminals.contains(tool.identifier) ? .on : .off
-            checkbox.widthAnchor.constraint(equalToConstant: 112).isActive = true
+            checkbox.widthAnchor.constraint(equalToConstant: 116).isActive = true
             return checkbox
         }
 
-        stack.addArrangedSubview(checkboxGrid(terminalCheckboxes))
+        for rowStart in stride(from: 0, to: terminalCheckboxes.count, by: 3) {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+            for checkbox in terminalCheckboxes[rowStart..<min(rowStart + 3, terminalCheckboxes.count)] {
+                row.addArrangedSubview(checkbox)
+            }
+            stack.addArrangedSubview(row)
+        }
 
-        let spacer = NSView()
-        spacer.heightAnchor.constraint(equalToConstant: 8).isActive = true
-        stack.addArrangedSubview(spacer)
         stack.addArrangedSubview(toolSectionTitle("开发工具"))
-
         let enabledTools = Set(pendingDeveloperTools)
         developerToolCheckboxes = Settings.allDeveloperTools.enumerated().map { index, tool in
             let checkbox = NSButton(
@@ -205,20 +213,25 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             )
             checkbox.tag = index
             checkbox.state = enabledTools.contains(tool.identifier) ? .on : .off
-            checkbox.widthAnchor.constraint(equalToConstant: 112).isActive = true
+            checkbox.widthAnchor.constraint(equalToConstant: 116).isActive = true
             return checkbox
         }
 
-        stack.addArrangedSubview(checkboxGrid(developerToolCheckboxes))
+        for rowStart in stride(from: 0, to: developerToolCheckboxes.count, by: 3) {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+            for checkbox in developerToolCheckboxes[rowStart..<min(rowStart + 3, developerToolCheckboxes.count)] {
+                row.addArrangedSubview(checkbox)
+            }
+            stack.addArrangedSubview(row)
+        }
         return moduleBox(stack)
     }
 
     private func buildHashModule() -> NSView {
-        let stack = moduleStack(
-            iconName: "number",
-            title: "哈希算法",
-            subtitle: "结果窗口只输出勾选的算法。"
-        )
+        let stack = moduleStack(title: "哈希算法", subtitle: "只在菜单结果中输出勾选的算法。")
         let enabled = Set(pendingHashAlgorithms)
         hashCheckboxes = Settings.allHashAlgorithms.enumerated().map { index, algorithm in
             let checkbox = NSButton(checkboxWithTitle: algorithm, target: self, action: #selector(hashChanged(_:)))
@@ -242,43 +255,8 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         return moduleBox(stack)
     }
 
-    private func toolSectionTitle(_ title: String) -> NSTextField {
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 13, weight: .medium)
-        label.textColor = .secondaryLabelColor
-        return label
-    }
-
-    private func checkboxGrid(_ checkboxes: [NSButton], columns: Int = 3) -> NSStackView {
-        let grid = NSStackView()
-        grid.orientation = .vertical
-        grid.alignment = .leading
-        grid.spacing = 8
-        grid.setContentHuggingPriority(.required, for: .vertical)
-        grid.setContentCompressionResistancePriority(.required, for: .vertical)
-
-        for rowStart in stride(from: 0, to: checkboxes.count, by: columns) {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = 8
-            row.setContentHuggingPriority(.required, for: .vertical)
-            row.setContentCompressionResistancePriority(.required, for: .vertical)
-            row.heightAnchor.constraint(equalToConstant: 24).isActive = true
-            for checkbox in checkboxes[rowStart..<min(rowStart + columns, checkboxes.count)] {
-                row.addArrangedSubview(checkbox)
-            }
-            grid.addArrangedSubview(row)
-        }
-        return grid
-    }
-
     private func buildFileTypesModule() -> NSView {
-        let stack = moduleStack(
-            iconName: "doc.badge.plus",
-            title: "新建文件类型",
-            subtitle: "列表顺序就是 Finder 子菜单顺序。"
-        )
+        let stack = moduleStack(title: "新建文件类型", subtitle: "列表顺序就是 Finder 子菜单顺序。")
 
         fileTypeTable = NSTableView()
         fileTypeTable.headerView = nil
@@ -286,10 +264,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         fileTypeTable.dataSource = self
         fileTypeTable.delegate = self
         fileTypeTable.allowsEmptySelection = true
-        fileTypeTable.usesAlternatingRowBackgroundColors = false
-        fileTypeTable.gridStyleMask = []
-        fileTypeTable.intercellSpacing = NSSize(width: 0, height: 0)
-        fileTypeTable.backgroundColor = .clear
+        fileTypeTable.usesAlternatingRowBackgroundColors = true
 
         let column = NSTableColumn(identifier: Column.fileType)
         column.title = "扩展名"
@@ -299,10 +274,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let tableScroll = NSScrollView()
         tableScroll.documentView = fileTypeTable
         tableScroll.hasVerticalScroller = true
-        tableScroll.borderType = .noBorder
-        tableScroll.drawsBackground = false
+        tableScroll.borderType = .bezelBorder
         tableScroll.translatesAutoresizingMaskIntoConstraints = false
-        tableScroll.heightAnchor.constraint(equalToConstant: 142).isActive = true
+        tableScroll.heightAnchor.constraint(equalToConstant: 138).isActive = true
         stack.addArrangedSubview(tableScroll)
 
         let inputRow = NSStackView()
@@ -319,7 +293,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         inputRow.addArrangedSubview(fileTypeInput)
 
         let addButton = NSButton(title: "添加", target: self, action: #selector(addFileTypes))
-        configureActionButton(addButton, symbolName: "plus")
+        addButton.bezelStyle = .rounded
         inputRow.addArrangedSubview(addButton)
         stack.addArrangedSubview(inputRow)
 
@@ -329,9 +303,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         buttonRow.spacing = 8
 
         let removeButton = NSButton(title: "删除选中", target: self, action: #selector(removeSelectedFileType))
-        configureActionButton(removeButton, symbolName: "minus")
+        removeButton.bezelStyle = .rounded
         let defaultButton = NSButton(title: "恢复类型默认", target: self, action: #selector(resetFileTypes))
-        configureActionButton(defaultButton, symbolName: "arrow.counterclockwise")
+        defaultButton.bezelStyle = .rounded
 
         buttonRow.addArrangedSubview(removeButton)
         buttonRow.addArrangedSubview(defaultButton)
@@ -341,31 +315,16 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     private func buildExtensionModule() -> NSView {
-        let stack = moduleStack(
-            iconName: "puzzlepiece.extension",
-            title: "扩展与同步",
-            subtitle: "检查 Finder 扩展与共享设置状态。"
-        )
+        let stack = moduleStack(title: "扩展与同步", subtitle: "用于确认扩展和共享设置文件是否存在。")
 
-        let extPath = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/PlugIns/FinderToolkitExtension.appex")
-        let hasExtension = FileManager.default.fileExists(atPath: extPath.path)
-        stack.addArrangedSubview(statusRow(
-            title: hasExtension ? "Finder 扩展已安装" : "Finder 扩展未找到",
-            color: hasExtension ? .systemGreen : .systemRed
-        ))
+        extensionInstalledStatus = statusRow(title: "正在检测 Finder 扩展...", color: .systemOrange)
+        stack.addArrangedSubview(extensionInstalledStatus)
 
-        let authorization = extensionAuthorizationStatus()
-        stack.addArrangedSubview(statusRow(
-            title: authorization.title,
-            color: authorization.color
-        ))
+        extensionAuthorizationStatus = statusRow(title: "正在检测扩展授权...", color: .systemOrange)
+        stack.addArrangedSubview(extensionAuthorizationStatus)
 
-        let settingsExists = FileManager.default.fileExists(atPath: ToolkitSettingsStore.userSettingsURL.path)
-        stack.addArrangedSubview(statusRow(
-            title: settingsExists ? "设置文件已创建" : "保存后创建设置文件",
-            color: settingsExists ? .systemGreen : .systemOrange
-        ))
+        settingsFileStatus = statusRow(title: "正在检查共享设置...", color: .systemOrange)
+        stack.addArrangedSubview(settingsFileStatus)
 
         let pathLabel = NSTextField(labelWithString: displayPath(for: ToolkitSettingsStore.userSettingsURL))
         pathLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
@@ -374,7 +333,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         stack.addArrangedSubview(pathLabel)
 
         let openSettingsButton = NSButton(title: "打开系统扩展设置", target: self, action: #selector(openSystemSettings))
-        configureActionButton(openSettingsButton, symbolName: "gearshape")
+        openSettingsButton.bezelStyle = .rounded
         stack.addArrangedSubview(openSettingsButton)
 
         return moduleBox(stack)
@@ -394,9 +353,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let resetButton = NSButton(title: "全部恢复默认", target: self, action: #selector(resetSettings))
-        configureActionButton(resetButton, symbolName: "arrow.counterclockwise")
+        resetButton.bezelStyle = .rounded
         let saveButton = NSButton(title: "保存设置", target: self, action: #selector(saveSettings))
-        configureActionButton(saveButton, symbolName: "checkmark", emphasized: true)
+        saveButton.bezelStyle = .rounded
         saveButton.keyEquivalent = "\r"
         saveButton.font = .systemFont(ofSize: 13, weight: .semibold)
 
@@ -407,32 +366,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         return stack
     }
 
-    private func moduleStack(iconName: String, title: String, subtitle: String) -> NSStackView {
+    private func moduleStack(title: String, subtitle: String) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 11
-        stack.edgeInsets = NSEdgeInsets(top: 17, left: 17, bottom: 17, right: 17)
-
-        let header = NSStackView()
-        header.orientation = .horizontal
-        header.alignment = .centerY
-        header.spacing = 9
-
-        let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: iconName, accessibilityDescription: title)
-        icon.contentTintColor = .secondaryLabelColor
-        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            icon.widthAnchor.constraint(equalToConstant: 20),
-            icon.heightAnchor.constraint(equalToConstant: 20)
-        ])
-
-        let labels = NSStackView()
-        labels.orientation = .vertical
-        labels.alignment = .leading
-        labels.spacing = 2
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
 
         let titleLabel = NSTextField(labelWithString: title)
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
@@ -440,41 +379,20 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         subtitleLabel.font = .systemFont(ofSize: 12)
         subtitleLabel.textColor = .secondaryLabelColor
 
-        labels.addArrangedSubview(titleLabel)
-        labels.addArrangedSubview(subtitleLabel)
-        header.addArrangedSubview(icon)
-        header.addArrangedSubview(labels)
-        stack.addArrangedSubview(header)
+        stack.addArrangedSubview(titleLabel)
+        stack.addArrangedSubview(subtitleLabel)
         return stack
     }
 
     private func moduleBox(_ content: NSStackView) -> NSView {
-        let box: NSView
-        if #available(macOS 26.0, *) {
-            content.wantsLayer = true
-            content.layer?.backgroundColor = NSColor.windowBackgroundColor
-                .withAlphaComponent(0.70)
-                .cgColor
-            content.layer?.cornerRadius = 8
-            content.layer?.masksToBounds = true
-            let glass = NSGlassEffectView()
-            glass.contentView = content
-            glass.cornerRadius = 8
-            glass.style = .clear
-            glass.tintColor = nil
-            box = glass
-        } else {
-            let material = NSVisualEffectView()
-            material.material = .contentBackground
-            material.blendingMode = .withinWindow
-            material.state = .active
-            material.wantsLayer = true
-            material.layer?.cornerRadius = 8
-            material.layer?.borderWidth = 1
-            material.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.60).cgColor
-            material.addSubview(content)
-            box = material
-        }
+        let box = NSBox()
+        box.boxType = .custom
+        box.borderType = .lineBorder
+        box.borderWidth = 1
+        box.borderColor = NSColor.separatorColor.withAlphaComponent(0.85)
+        box.cornerRadius = 8
+        box.fillColor = NSColor.controlBackgroundColor
+        box.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: box.leadingAnchor),
@@ -485,17 +403,11 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         return box
     }
 
-    private func configureActionButton(_ button: NSButton, symbolName: String, emphasized: Bool = false) {
-        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: button.title)
-        button.imagePosition = .imageLeading
-        if #available(macOS 26.0, *) {
-            button.bezelStyle = .glass
-            if emphasized {
-                button.bezelColor = NSColor(calibratedRed: 0.16, green: 0.62, blue: 0.35, alpha: 1)
-            }
-        } else {
-            button.bezelStyle = .rounded
-        }
+    private func toolSectionTitle(_ title: String) -> NSTextField {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.textColor = .secondaryLabelColor
+        return label
     }
 
     private func formRow(label: String) -> NSStackView {
@@ -512,78 +424,179 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         return row
     }
 
-    private func statusRow(title: String, color: NSColor) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 8
-
-        let dot = NSView()
-        dot.wantsLayer = true
-        dot.layer?.backgroundColor = color.cgColor
-        dot.layer?.cornerRadius = 4.5
-        dot.translatesAutoresizingMaskIntoConstraints = false
-        dot.widthAnchor.constraint(equalToConstant: 9).isActive = true
-        dot.heightAnchor.constraint(equalToConstant: 9).isActive = true
-
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 13)
-
-        row.addArrangedSubview(dot)
-        row.addArrangedSubview(label)
-        return row
+    private func statusRow(title: String, color: NSColor) -> StatusRowView {
+        StatusRowView(title: title, color: color)
     }
 
-    private func extensionAuthorizationStatus() -> (title: String, color: NSColor) {
+    private func startStatusRefreshTimer() {
+        guard statusRefreshTimer == nil else {
+            statusLog("status refresh timer already active")
+            return
+        }
+        let timer = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
+            self?.refreshStatuses()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        statusRefreshTimer = timer
+        statusLog("status refresh timer started interval=3s runLoopMode=common")
+    }
+
+    private func refreshStatuses() {
+        statusRefreshSequence += 1
+        let refreshID = statusRefreshSequence
+        guard !statusRefreshInFlight,
+              extensionInstalledStatus != nil,
+              extensionAuthorizationStatus != nil,
+              settingsFileStatus != nil else {
+            statusLog(
+                "status refresh skipped id=\(refreshID) inFlight=\(statusRefreshInFlight) "
+                    + "viewsReady=\(extensionInstalledStatus != nil && extensionAuthorizationStatus != nil && settingsFileStatus != nil)"
+            )
+            return
+        }
+        statusRefreshInFlight = true
+
+        let extensionURL = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/PlugIns/FinderToolkitExtension.appex")
+        let settingsURL = ToolkitSettingsStore.userSettingsURL
+        statusLog(
+            "status refresh begin id=\(refreshID) appPath=\(Bundle.main.bundleURL.path) "
+                + "extensionPath=\(extensionURL.path) extensionExists=\(FileManager.default.fileExists(atPath: extensionURL.path)) "
+                + "settingsPath=\(settingsURL.path) settingsExists=\(FileManager.default.fileExists(atPath: settingsURL.path))"
+        )
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let hasExtension = FileManager.default.fileExists(atPath: extensionURL.path)
+            let authorization = self?.readExtensionAuthorizationStatus()
+                ?? ("无法检测扩展授权状态", NSColor.systemOrange)
+            let settingsExists = FileManager.default.fileExists(atPath: settingsURL.path)
+            self?.statusLog(
+                "status refresh read complete id=\(refreshID) extensionExists=\(hasExtension) "
+                    + "authorizationTitle=\(authorization.0) settingsExists=\(settingsExists)"
+            )
+
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.statusRefreshInFlight = false
+                self.extensionInstalledStatus.update(
+                    title: hasExtension ? "Finder 扩展已安装" : "Finder 扩展未找到",
+                    color: hasExtension ? .systemGreen : .systemRed
+                )
+                self.extensionAuthorizationStatus.update(
+                    title: authorization.0,
+                    color: authorization.1
+                )
+                self.settingsFileStatus.update(
+                    title: settingsExists ? "设置文件已创建" : "保存后创建设置文件",
+                    color: settingsExists ? .systemGreen : .systemOrange
+                )
+                self.statusLog("status refresh UI updated id=\(refreshID) authorizationTitle=\(authorization.0)")
+            }
+        }
+    }
+
+    private func readExtensionAuthorizationStatus() -> (title: String, color: NSColor) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/pluginkit")
         let bundleIdentifier = "com.pandkided.FinderToolkit.Extension"
-        process.arguments = ["-m", "-A", "-i", bundleIdentifier]
+        let arguments = ["-m", "-A", "-i", bundleIdentifier]
+        process.arguments = arguments
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
+        let standardOutputPipe = Pipe()
+        let standardErrorPipe = Pipe()
+        process.standardOutput = standardOutputPipe
+        process.standardError = standardErrorPipe
         let completion = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in completion.signal() }
+
+        statusLog(
+            "pluginkit start executable=\(process.executableURL?.path ?? "unknown") "
+                + "args=\(arguments.joined(separator: " ")) bundleID=\(bundleIdentifier)"
+        )
 
         do {
             try process.run()
         } catch {
+            statusLog("pluginkit run failed error=\(error.localizedDescription)")
             return ("无法检测扩展授权状态", .systemOrange)
         }
 
         if completion.wait(timeout: .now() + 3) == .timedOut {
+            statusLog("pluginkit timeout pid=\(process.processIdentifier); terminating process")
             process.terminate()
             return ("扩展授权状态检测超时", .systemOrange)
         }
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8) ?? ""
-        if output.contains("(no matches)") || output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return ("Finder 扩展未注册或未授权", .systemRed)
-        }
-        let lines = output.components(separatedBy: .newlines)
-        if lines.contains(where: { line in
+        let stdoutData = standardOutputPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = standardErrorPipe.fileHandleForReading.readDataToEndOfFile()
+        let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
+        let stderr = String(data: stderrData, encoding: .utf8) ?? ""
+        let combinedOutput = [stdout, stderr]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        let lines = combinedOutput.components(separatedBy: .newlines)
+        let matchingLines = lines
+            .filter { $0.contains(bundleIdentifier) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let enabledLine = matchingLines.first { line in
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.hasPrefix("+")
                 && trimmed.contains(bundleIdentifier)
-        }) {
-            return ("Finder 扩展已授权启用", .systemGreen)
         }
-        if lines.contains(where: { line in
+        let disabledLine = matchingLines.first { line in
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.hasPrefix("-")
                 && trimmed.contains(bundleIdentifier)
-        }) {
-            return ("Finder 扩展未启用", .systemRed)
         }
-        if output.contains(bundleIdentifier) {
-            return ("Finder 扩展已注册，授权状态由系统返回为启用", .systemGreen)
-        }
-        if isExtensionProcessRunning(bundleIdentifier: bundleIdentifier) {
+        statusLog(
+            "pluginkit finish pid=\(process.processIdentifier) exit=\(process.terminationStatus) "
+                + "reason=\(process.terminationReason) stdout=\(logText(stdout)) stderr=\(logText(stderr)) "
+                + "matchingLines=\(matchingLines)"
+        )
+
+        if let enabledLine {
+            statusLog("pluginkit decision=enabled matchedLine=\(enabledLine)")
             return ("Finder 扩展已授权启用", .systemGreen)
         }
-        return ("Finder 扩展未启用或未授权", .systemRed)
+        if let disabledLine {
+            statusLog("pluginkit decision=disabled matchedLine=\(disabledLine)")
+            return ("Finder 扩展未启用", .systemRed)
+        }
+
+        let runningExtensionApplications = NSWorkspace.shared.runningApplications.filter { application in
+            application.bundleIdentifier == bundleIdentifier
+                || application.bundleURL?.lastPathComponent == "FinderToolkitExtension.appex"
+        }
+        statusLog("pluginkit fallback runningExtensionApplications=\(runningExtensionApplications.count)")
+        if !runningExtensionApplications.isEmpty {
+            statusLog("pluginkit decision=enabled fallback=running-extension")
+            return ("Finder 扩展已授权启用", .systemGreen)
+        }
+
+        if combinedOutput.contains(bundleIdentifier) {
+            statusLog("pluginkit decision=registered fallback=bundle-id-match")
+            return ("Finder 扩展已注册，授权状态由系统返回为启用", .systemGreen)
+        }
+
+        if combinedOutput.contains("(no matches)") {
+            statusLog("pluginkit decision=not-registered reason=no-matches-marker")
+        } else if combinedOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            statusLog("pluginkit decision=not-registered reason=empty-output")
+        } else {
+            statusLog("pluginkit decision=not-registered reason=no-bundle-id-match")
+        }
+        return ("Finder 扩展未注册或未授权", .systemRed)
+    }
+
+    private func statusLog(_ message: String) {
+        NSLog("FinderToolkit[status] %@", message)
+    }
+
+    private func logText(_ text: String) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+        return String(normalized.prefix(2000))
     }
 
     private func displayPath(for url: URL) -> String {
@@ -592,13 +605,6 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             return url.path
         }
         return "~/" + components.dropFirst(2).joined(separator: "/")
-    }
-
-    private func isExtensionProcessRunning(bundleIdentifier: String) -> Bool {
-        NSWorkspace.shared.runningApplications.contains { app in
-            app.bundleIdentifier == bundleIdentifier
-                || app.bundleURL?.lastPathComponent == "FinderToolkitExtension.appex"
-        }
     }
 
     private func lastSavedText() -> String {
@@ -623,10 +629,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             ?? NSTextField()
         textField.identifier = identifier
         textField.isBordered = false
-        textField.drawsBackground = false
         textField.backgroundColor = .clear
-        textField.focusRingType = .none
-        textField.textColor = .labelColor
         textField.isEditable = true
         textField.delegate = self
         textField.stringValue = pendingFileTypes[row]
@@ -753,8 +756,8 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     @objc private func saveSettings() {
         pendingFileTypes = Settings.normalizedFileTypes(pendingFileTypes)
         pendingHashAlgorithms = Settings.normalizedHashAlgorithms(pendingHashAlgorithms)
-        pendingDeveloperTools = Settings.normalizedDeveloperTools(pendingDeveloperTools)
         pendingTerminalTools = Settings.normalizedTerminalTools(pendingTerminalTools)
+        pendingDeveloperTools = Settings.normalizedDeveloperTools(pendingDeveloperTools)
         let saved = Settings.save(
             enabledTerminalTools: pendingTerminalTools,
             newFileTypes: pendingFileTypes,
@@ -769,6 +772,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             statusLabel.stringValue = "保存失败，请检查设置目录权限后重试"
             statusLabel.textColor = .systemRed
         }
+        refreshStatuses()
     }
 
     @objc private func openSystemSettings() {

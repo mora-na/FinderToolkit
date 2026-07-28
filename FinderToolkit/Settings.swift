@@ -26,7 +26,19 @@ enum Settings {
     static let defaultTerminalTools = ToolkitSettingsPayload.defaultTerminalApps
 
     static var enabledTerminalTools: [String] {
-        get { ToolkitSettingsStore.load().terminalApps }
+        get {
+            let stored = ToolkitSettingsStore.load()
+            if stored.updatedAt.timeIntervalSince1970 > 0 {
+                return normalizedTerminalTools(stored.terminalApps)
+            }
+            if let values = stringArray(forKey: Key.terminalApps) {
+                return normalizedTerminalTools(values)
+            }
+            if let legacy = string(forKey: Key.terminalApp) {
+                return normalizedTerminalTools([legacy])
+            }
+            return defaultTerminalTools
+        }
         set {
             save(
                 enabledTerminalTools: newValue,
@@ -81,7 +93,13 @@ enum Settings {
 
     static var enabledDeveloperTools: [String] {
         get {
-            ToolkitSettingsStore.load().developerTools
+            let stored = ToolkitSettingsStore.load()
+            if stored.updatedAt.timeIntervalSince1970 > 0 {
+                return normalizedDeveloperTools(stored.developerTools)
+            }
+            return stringArray(forKey: Key.developerTools)
+                .map(normalizedDeveloperTools)
+                ?? defaultDeveloperTools
         }
         set {
             save(
@@ -105,9 +123,10 @@ enum Settings {
         enabledHashAlgorithms: [String],
         enabledDeveloperTools: [String]
     ) -> Bool {
+        let normalizedTerminalTools = normalizedTerminalTools(enabledTerminalTools)
         let payload = ToolkitSettingsPayload(
-            terminalApp: normalizedTerminalTools(enabledTerminalTools).first ?? "terminal",
-            terminalApps: normalizedTerminalTools(enabledTerminalTools),
+            terminalApp: normalizedTerminalTools.first ?? "terminal",
+            terminalApps: normalizedTerminalTools,
             newFileTypes: normalizedFileTypes(newFileTypes),
             hashAlgorithms: normalizedHashAlgorithms(enabledHashAlgorithms),
             developerTools: normalizedDeveloperTools(enabledDeveloperTools),

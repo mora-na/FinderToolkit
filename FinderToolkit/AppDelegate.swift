@@ -11,7 +11,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let largeHashThreshold: Int64 = 1024 * 1024 * 1024
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        appLog(
+            "launched path=\(Bundle.main.bundleURL.path) bundleID=\(Bundle.main.bundleIdentifier ?? "unknown") "
+                + "version=\(version) build=\(build) pid=\(ProcessInfo.processInfo.processIdentifier)"
+        )
+        NSApp.setActivationPolicy(.accessory)
         setupMainMenu()
 
         NSAppleEventManager.shared().setEventHandler(
@@ -32,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         shouldTerminateAfterHashWindowCloses = false
+        appLog("show settings window handledURL=\(handledURL)")
         let controller = SettingsWindowController()
         settingsWindowController = controller
         controller.showWindow(nil)
@@ -57,7 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(
         _ sender: NSApplication
     ) -> Bool {
-        return false
+        return !handledURL
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -68,12 +75,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        appLog("received open URLs count=\(urls.count) values=\(urls.map(\.absoluteString))")
         handledURL = true
         shouldTerminateAfterHashWindowCloses = true
         // 关闭可能已显示的设置窗口
         settingsWindowController?.window?.close()
         settingsWindowController = nil
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory)
         for url in urls {
             handleURL(url)
         }
@@ -90,7 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.settingsWindowController?.window?.close()
             self?.settingsWindowController = nil
         }
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory)
         guard let urlString = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
               let url = URL(string: urlString) else {
             showCopyableDialog(title: "FinderToolkit", message: "无法解析请求。")
@@ -101,6 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleURL(_ url: URL) {
+        appLog("handling URL \(url.absoluteString)")
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             showCopyableDialog(title: "FinderToolkit", message: "无法解析请求：\(url.absoluteString)")
             return
@@ -112,6 +121,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         default:
             showCopyableDialog(title: "FinderToolkit", message: "未知操作：\(components.host ?? "")")
         }
+    }
+
+    private func appLog(_ message: String) {
+        NSLog("FinderToolkit[app] %@", message)
     }
 
     private func handleHash(_ components: URLComponents) {

@@ -6,7 +6,8 @@ FinderToolkit 是一个原生 macOS Finder 扩展，把常用的文件操作放�
 
 ## 下载
 
-- [打开最新 Release 并下载 FinderToolkit](https://github.com/mora-na/FinderToolkit/releases/latest)
+- [下载 FinderToolkit 1.1.3 DMG](https://github.com/mora-na/FinderToolkit/releases/download/v1.1.3/FinderToolkit-1.1.3.dmg)
+- [查看全部 Releases](https://github.com/mora-na/FinderToolkit/releases)
 
 当前公开 DMG 是 Apple Silicon（`arm64`）构建，最低支持 macOS 13 Ventura。DMG 使用 ad-hoc 签名，未使用 Developer ID，也未经过 Apple notarization；首次打开时按下面的“首次启动”步骤操作。
 
@@ -17,24 +18,18 @@ FinderToolkit 是一个原生 macOS Finder 扩展，把常用的文件操作放�
 | 复制路径 | 文件、文件夹、空白处、侧边栏、工具栏菜单 | 复制一个或多个路径；多选时每个路径占一行 |
 | 新建文件 | 文件、文件夹、目录空白处 | 创建 `txt`、`docx`、`xlsx`、`pptx`、`md`、`csv` 等文件，自动避开重名 |
 | 计算 hash | 一个或多个文件 | 流式计算 `CRC32`、`CRC32C`、`MD5`、`SHA1`、`SHA224`、`SHA256`、`SHA384`、`SHA512`、`SM3` |
-| 打开终端 | 文件、文件夹、目录空白处 | 在目标目录打开 Terminal 或 iTerm2 |
+| 打开终端 | 文件、文件夹、目录空白处 | 按设置中选中的终端工具分别打开目标目录 |
 | 在开发工具中打开 | 文件、文件夹、目录空白处 | 按设置页选择的工具动态显示菜单项 |
 
 默认启用 `MD5`、`SHA1`、`SHA256` 和 VS Code。所有菜单、哈希算法、新建文件扩展名都可以在设置页调整。
 
 ## 使用截图
 
-### Finder 菜单
-
-![FinderToolkit Finder 菜单](docs/images/finder-menu.png)
-
-在 Finder 文件夹空白处右键，即可新建文件、复制当前路径、打开终端，或使用已启用的开发工具打开当前目录。
-
 ### 设置页
 
 ![FinderToolkit 设置页](docs/images/settings-window.png)
 
-在设置页选择终端、开发工具和哈希算法，编辑新建文件类型，确认 Finder 扩展状态，然后点击“保存设置”。
+在设置页选择一个或多个终端、开发工具和哈希算法，编辑新建文件类型，确认 Finder 扩展状态，然后点击“保存设置”。
 
 ### 哈希结果
 
@@ -78,22 +73,13 @@ xcodebuild \
 
 ## 生成发布 DMG
 
-`Tools/package_release.sh` 会执行 Release 构建、去除本机调试路径、对 App 和 Extension 做 ad-hoc 签名、扫描用户名/主目录/邮箱模式、生成带版本号的 DMG 和固定名称的 `FinderToolkit-latest.dmg`，并运行 `codesign` 和 `hdiutil verify` 校验：
+`Tools/package_release.sh` 会执行 Release 构建、去除本机调试路径、对 App 和 Extension 做 ad-hoc 签名、扫描用户名/主目录/邮箱模式、生成 DMG，并运行 `codesign` 和 `hdiutil verify` 校验：
 
 ```bash
 bash Tools/package_release.sh
 ```
 
-输出文件为 `dist/FinderToolkit-<version>.dmg` 和 `dist/FinderToolkit-latest.dmg`。创建 GitHub Release 后，同时上传这两个资产，例如：
-
-```bash
-gh release upload v<version> \
-  dist/FinderToolkit-<version>.dmg \
-  dist/FinderToolkit-latest.dmg \
-  --clobber
-```
-
-README 使用 GitHub 的 `releases/latest` 页面链接，因此后续正式 Release 会自动指向最新版本。脚本要求 Xcode 命令行工具和 `hdiutil`，不需要把证书或账号信息写入仓库。要制作可在 Gatekeeper 中直接通过的公开发行版，需要另外配置 Developer ID Application、Developer ID Installer（如有需要）和 Apple notarization 流程。
+输出文件为 `dist/FinderToolkit-<version>.dmg`；构建目录和 DMG staging 目录均使用临时路径，打包成功或失败后会移入废纸篓，`dist` 只保留最终 DMG。脚本要求 Xcode 命令行工具和 `hdiutil`，不需要把证书或账号信息写入仓库。要制作可在 Gatekeeper 中直接通过的公开发行版，需要另外配置 Developer ID Application、Developer ID Installer（如有需要）和 Apple notarization 流程。
 
 ## 项目结构
 
@@ -117,8 +103,8 @@ FinderToolkit/
 
 ## 发布校验
 
-发布资产的 SHA-256 以对应 GitHub Release 中显示的 digest 为准；本地校验可运行：
+FinderToolkit 1.1.3 DMG 的 SHA-256：
 
 ```text
-shasum -a 256 dist/FinderToolkit-<version>.dmg
+70727e9cb72bf19ec393782fc14ba9d5619b73d25cc5e3f3e848e88f93ffe162
 ```

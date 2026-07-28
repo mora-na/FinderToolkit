@@ -8,6 +8,16 @@ class FinderSync: FIFinderSync {
 
     override init() {
         super.init()
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        NSLog(
+            "FinderToolkit[extension] launched path=%@ bundleID=%@ version=%@ build=%@ settings=%@",
+            Bundle.main.bundleURL.path,
+            Bundle.main.bundleIdentifier ?? "unknown",
+            version,
+            build,
+            ToolkitSettingsStore.userSettingsURL.path
+        )
         // 监听整个文件系统根目录
         // 这样在任何 Finder 窗口内右键都能触发菜单
         FIFinderSyncController.default().directoryURLs = [
@@ -19,8 +29,16 @@ class FinderSync: FIFinderSync {
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
         let menu = NSMenu(title: "FinderToolkit")
+        let selectedCount = FIFinderSyncController.default().selectedItemURLs()?.count ?? 0
+        let targetedPath = FIFinderSyncController.default().targetedURL()?.path ?? "nil"
         NSLog(
-            "FinderToolkit menu settings terminals=%@ fileTypes=%@ hashAlgorithms=%@ developerTools=%@ settingsFile=%@",
+            "FinderToolkit[extension] menu request kind=%@ selectedCount=%@ targetedPath=%@",
+            String(describing: menuKind),
+            String(selectedCount),
+            targetedPath
+        )
+        NSLog(
+            "FinderToolkit[extension] settings terminal=%@ fileTypes=%@ hashAlgorithms=%@ developerTools=%@ settingsFile=%@",
             ExtensionSettings.enabledTerminalTools.map(\.identifier).joined(separator: ","),
             ExtensionSettings.newFileTypes.joined(separator: ","),
             ExtensionSettings.enabledHashAlgorithms.joined(separator: ","),
@@ -34,9 +52,7 @@ class FinderSync: FIFinderSync {
         case .contextualMenuForItems:
             addNewFileItem(to: menu)
             addCopyPathItem(to: menu)
-            if canCalculateHashForSelection() {
-                addHashItem(to: menu)
-            }
+            addHashItem(to: menu)
             addOpenTerminalItems(to: menu)
             addDeveloperToolItems(to: menu)
 
@@ -108,13 +124,16 @@ class FinderSync: FIFinderSync {
 
     private func addOpenTerminalItems(to menu: NSMenu) {
         for terminal in ExtensionSettings.enabledTerminalTools {
+            guard let index = TerminalTool.all.firstIndex(where: { $0.identifier == terminal.identifier }) else {
+                continue
+            }
             let item = NSMenuItem(
                 title: terminal.menuTitle,
                 action: #selector(openConfiguredTerminal(_:)),
                 keyEquivalent: ""
             )
             item.target = self
-            item.representedObject = terminal.identifier
+            item.tag = index
             menu.addItem(item)
         }
     }
@@ -208,13 +227,23 @@ class FinderSync: FIFinderSync {
 
     @objc func calculateHash(_ sender: AnyObject?) {
         guard let urls = FIFinderSyncController.default().selectedItemURLs(),
-              !urls.isEmpty,
-              canCalculateHash(for: urls) else { return }
+              !urls.isEmpty else { return }
+
+        let fileURLs = urls.filter { url in
+            var isDir: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            return !isDir.boolValue
+        }
+
+        guard !fileURLs.isEmpty else {
+            showAlert(title: "提示", message: "请选择文件（不支持文件夹）")
+            return
+        }
 
         var components = URLComponents()
         components.scheme = "findertoolkit"
         components.host = "hash"
-        components.queryItems = urls.map { URLQueryItem(name: "file", value: $0.path) }
+        components.queryItems = fileURLs.map { URLQueryItem(name: "file", value: $0.path) }
 
         guard let url = components.url else {
             showAlert(title: "计算hash", message: "无法创建主程序请求。")
@@ -224,31 +253,16 @@ class FinderSync: FIFinderSync {
         NSWorkspace.shared.open(url)
     }
 
-    private func canCalculateHashForSelection() -> Bool {
-        guard let urls = FIFinderSyncController.default().selectedItemURLs(), !urls.isEmpty else {
-            return false
-        }
-        return canCalculateHash(for: urls)
-    }
-
-    private func canCalculateHash(for urls: [URL]) -> Bool {
-        urls.allSatisfy { url in
-            var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
-                return false
-            }
-            return !isDirectory.boolValue
-        }
-    }
-
     // MARK: - 功能四：打开终端
 
     @objc private func openConfiguredTerminal(_ sender: AnyObject?) {
         guard let item = sender as? NSMenuItem,
-              let identifier = item.representedObject as? String,
-              let terminal = TerminalTool.tool(withIdentifier: identifier),
-              let targetDirectory = currentTargetDirectory() else { return }
+              TerminalTool.all.indices.contains(item.tag),
+              let targetDirectory = currentTargetDirectory() else {
+            return
+        }
 
+        let terminal = TerminalTool.all[item.tag]
         switch terminal.identifier {
         case "terminal":
             openSystemTerminal(at: targetDirectory)
@@ -257,41 +271,6 @@ class FinderSync: FIFinderSync {
         default:
             openTerminalApplication(terminal, at: targetDirectory)
         }
-    }
-
-    private func openTerminalApplication(_ terminal: TerminalTool, at directory: URL) {
-        guard let appURL = terminal.bundleIdentifiers
-            .compactMap({ NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) })
-            .first else {
-            showAlert(title: "打开 \(terminal.displayName) 失败", message: "未找到 \(terminal.displayName)，请确认应用已安装。")
-            return
-        }
-
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.open(
-            [directory],
-            withApplicationAt: appURL,
-            configuration: configuration
-        ) { [weak self] _, error in
-            guard let error else { return }
-            DispatchQueue.main.async {
-                self?.showAlert(
-                    title: "打开 \(terminal.displayName) 失败",
-                    message: "\(directory.path)\n\(error.localizedDescription)"
-                )
-            }
-        }
-    }
-
-    @objc private func openSystemTerminal(_ sender: AnyObject?) {
-        guard let targetDirectory = currentTargetDirectory() else { return }
-        openSystemTerminal(at: targetDirectory)
-    }
-
-    @objc private func openITerm2(_ sender: AnyObject?) {
-        guard let targetDirectory = currentTargetDirectory() else { return }
-        openITerm2(at: targetDirectory)
     }
 
     private func openSystemTerminal(at directory: URL) {
@@ -334,6 +313,34 @@ class FinderSync: FIFinderSync {
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "iTerm2 未安装"]
             ))
+        }
+    }
+
+    private func openTerminalApplication(_ terminal: TerminalTool, at directory: URL) {
+        guard let appURL = terminal.bundleIdentifiers
+            .compactMap({ NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) })
+            .first else {
+            showAlert(
+                title: "打开 \(terminal.displayName) 失败",
+                message: "未找到 \(terminal.displayName)，请确认应用已安装。"
+            )
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open(
+            [directory],
+            withApplicationAt: appURL,
+            configuration: configuration
+        ) { [weak self] _, error in
+            guard let error else { return }
+            DispatchQueue.main.async {
+                self?.showAlert(
+                    title: "打开 \(terminal.displayName) 失败",
+                    message: "\(directory.path)\n\(error.localizedDescription)"
+                )
+            }
         }
     }
 

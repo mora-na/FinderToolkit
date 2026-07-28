@@ -6,22 +6,57 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INFO_PLIST="$ROOT_DIR/FinderToolkit/Info.plist"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
 BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
-BUILD_DIR="$ROOT_DIR/build/Release"
-APP_PATH="$BUILD_DIR/Build/Products/Release/FinderToolkit.app"
-STAGE_DIR="$ROOT_DIR/dist/FinderToolkit-$VERSION"
 DMG_PATH="$ROOT_DIR/dist/FinderToolkit-$VERSION.dmg"
-LATEST_DMG_PATH="$ROOT_DIR/dist/FinderToolkit-latest.dmg"
 
-if [[ -e "$BUILD_DIR" || -e "$STAGE_DIR" || -e "$DMG_PATH" || -e "$LATEST_DMG_PATH" ]]; then
+TMP_DIR=""
+DMG_CREATED=0
+PACKAGE_COMPLETE=0
+
+trash_if_exists() {
+    local path="$1"
+    if [[ -e "$path" || -L "$path" ]]; then
+        /usr/bin/trash "$path"
+    fi
+}
+
+cleanup() {
+    local exit_status=$?
+    trap - EXIT
+
+    if [[ "$PACKAGE_COMPLETE" != 1 && "$DMG_CREATED" == 1 ]]; then
+        trash_if_exists "$DMG_PATH"
+    fi
+
+    if [[ -n "$TMP_DIR" && "$TMP_DIR" == /private/tmp/FinderToolkit-release.* ]]; then
+        trash_if_exists "$TMP_DIR"
+    fi
+
+    if (( exit_status != 0 )) && [[ -n "$TMP_DIR" || "$DMG_CREATED" == 1 ]]; then
+        echo "Release packaging failed; temporary outputs were moved to Trash." >&2
+    fi
+
+    exit "$exit_status"
+}
+
+trap cleanup EXIT
+
+if [[ -e "$DMG_PATH" ]]; then
     echo "Release output already exists. Move it to Trash before rebuilding:" >&2
-    echo "  $BUILD_DIR" >&2
-    echo "  $STAGE_DIR" >&2
     echo "  $DMG_PATH" >&2
-    echo "  $LATEST_DMG_PATH" >&2
     exit 1
 fi
 
-mkdir -p "$BUILD_DIR" "$STAGE_DIR"
+# Remove only artifacts created by older versions of this release script.
+trash_if_exists "$ROOT_DIR/build"
+trash_if_exists "$ROOT_DIR/dist/FinderToolkit-$VERSION"
+trash_if_exists "$ROOT_DIR/dist/FinderToolkit-latest.dmg"
+
+TMP_DIR="$(mktemp -d /private/tmp/FinderToolkit-release.XXXXXX)"
+BUILD_DIR="$TMP_DIR/Build"
+APP_PATH="$BUILD_DIR/Build/Products/Release/FinderToolkit.app"
+STAGE_DIR="$TMP_DIR/Stage"
+
+mkdir -p "$BUILD_DIR" "$STAGE_DIR" "$ROOT_DIR/dist"
 
 xcodebuild \
     -project "$ROOT_DIR/FinderToolkit.xcodeproj" \
@@ -29,6 +64,7 @@ xcodebuild \
     -configuration Release \
     -derivedDataPath "$BUILD_DIR" \
     CODE_SIGNING_ALLOWED=NO \
+    REGISTER_WITH_LAUNCH_SERVICES=NO \
     DEBUG_INFORMATION_FORMAT=none \
     GCC_GENERATE_DEBUGGING_SYMBOLS=NO \
     SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
@@ -64,20 +100,17 @@ fi
 ditto "$APP_PATH" "$STAGE_DIR/FinderToolkit.app"
 ln -s /Applications "$STAGE_DIR/Applications"
 
+DMG_CREATED=1
 hdiutil create \
     -volname FinderToolkit \
     -srcfolder "$STAGE_DIR" \
     -format UDZO \
     "$DMG_PATH"
 
-hdiutil verify "$DMG_PATH"
-
 codesign --force --sign - --timestamp=none "$DMG_PATH"
 codesign --verify --verbose=2 "$DMG_PATH"
-
-ditto "$DMG_PATH" "$LATEST_DMG_PATH"
-codesign --verify --verbose=2 "$LATEST_DMG_PATH"
+hdiutil verify "$DMG_PATH"
+PACKAGE_COMPLETE=1
 
 echo "FinderToolkit $VERSION ($BUILD_NUMBER)"
 shasum -a 256 "$DMG_PATH"
-shasum -a 256 "$LATEST_DMG_PATH"

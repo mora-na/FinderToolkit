@@ -64,12 +64,42 @@ struct TerminalTool: Hashable {
     let bundleIdentifiers: [String]
 
     static let all: [TerminalTool] = [
-        TerminalTool(identifier: "terminal", displayName: "Terminal", menuTitle: "在此打开Terminal", bundleIdentifiers: ["com.apple.Terminal"]),
-        TerminalTool(identifier: "iterm2", displayName: "iTerm2", menuTitle: "在此打开iTerm2", bundleIdentifiers: ["com.googlecode.iterm2"]),
-        TerminalTool(identifier: "ghostty", displayName: "Ghostty", menuTitle: "在此打开Ghostty", bundleIdentifiers: ["com.mitchellh.ghostty"]),
-        TerminalTool(identifier: "warp", displayName: "Warp", menuTitle: "在此打开Warp", bundleIdentifiers: ["dev.warp.Warp-Stable"]),
-        TerminalTool(identifier: "wezterm", displayName: "WezTerm", menuTitle: "在此打开WezTerm", bundleIdentifiers: ["org.wezfurlong.wezterm"]),
-        TerminalTool(identifier: "alacritty", displayName: "Alacritty", menuTitle: "在此打开Alacritty", bundleIdentifiers: ["org.alacritty"])
+        TerminalTool(
+            identifier: "terminal",
+            displayName: "Terminal",
+            menuTitle: "在此打开 Terminal",
+            bundleIdentifiers: ["com.apple.Terminal"]
+        ),
+        TerminalTool(
+            identifier: "iterm2",
+            displayName: "iTerm2",
+            menuTitle: "在此打开 iTerm2",
+            bundleIdentifiers: ["com.googlecode.iterm2"]
+        ),
+        TerminalTool(
+            identifier: "ghostty",
+            displayName: "Ghostty",
+            menuTitle: "在此打开 Ghostty",
+            bundleIdentifiers: ["com.mitchellh.ghostty"]
+        ),
+        TerminalTool(
+            identifier: "warp",
+            displayName: "Warp",
+            menuTitle: "在此打开 Warp",
+            bundleIdentifiers: ["dev.warp.Warp-Stable"]
+        ),
+        TerminalTool(
+            identifier: "wezterm",
+            displayName: "WezTerm",
+            menuTitle: "在此打开 WezTerm",
+            bundleIdentifiers: ["org.wezfurlong.wezterm"]
+        ),
+        TerminalTool(
+            identifier: "alacritty",
+            displayName: "Alacritty",
+            menuTitle: "在此打开 Alacritty",
+            bundleIdentifiers: ["org.alacritty"]
+        )
     ]
 
     static func tool(withIdentifier identifier: String) -> TerminalTool? {
@@ -166,9 +196,10 @@ struct ToolkitSettingsPayload: Codable {
     }
 
     var normalized: ToolkitSettingsPayload {
-        ToolkitSettingsPayload(
-            terminalApp: Self.normalizedTerminalApps(terminalApps).first ?? "terminal",
-            terminalApps: Self.normalizedTerminalApps(terminalApps),
+        let normalizedTerminalApps = Self.normalizedTerminalApps(terminalApps)
+        return ToolkitSettingsPayload(
+            terminalApp: normalizedTerminalApps.first ?? "terminal",
+            terminalApps: normalizedTerminalApps,
             newFileTypes: Self.normalizedFileTypes(newFileTypes),
             hashAlgorithms: Self.normalizedHashAlgorithms(hashAlgorithms),
             developerTools: Self.normalizedDeveloperTools(developerTools),
